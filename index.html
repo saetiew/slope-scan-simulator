@@ -97,6 +97,7 @@ legend { font-family: var(--font-display); font-weight: 600; padding: 0 6px; fon
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 select { font-family: var(--font-body); font-size: 0.85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.card-head .btns { align-items: center; }
 input[type="number"] { width: 100%; font-family: var(--font-mono); font-size: 0.85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
 .btns { display: flex; flex-wrap: wrap; gap: 6px; }
 button { font-family: var(--font-body); font-size: 0.85rem; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer; }
@@ -125,7 +126,14 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   <div class="layout">
     <div class="main">
       <section class="card">
-        <h2>ระบบและเส้นแสง</h2>
+        <div class="card-head">
+          <h2>ระบบและเส้นแสง</h2>
+          <div class="btns">
+            <button id="svgDl" type="button">ดาวน์โหลด SVG</button>
+            <button id="svgCopy" type="button">คัดลอกโค้ด SVG</button>
+            <span class="note" id="svgMsg" aria-live="polite"></span>
+          </div>
+        </div>
         <p class="sub" id="schemNote">มุมในภาพขยาย ×K และระยะไม่ตามสเกล ตัวเลขทั้งหมดคำนวณจากขนาดจริง</p>
         <div class="scroll-x"><canvas id="schem" aria-label="ภาพระบบ autocollimator และเส้นแสง"></canvas></div>
         <div class="chips" id="chips" aria-live="polite"></div>
@@ -369,8 +377,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
   // ---------- schematic ----------
   let lastDrawClamp = { theta: false, tau: false };
-  function drawSchematic(real) {
-    const cv = $("schem"), { ctx, w, h } = setup(cv);
+  let lastReal = null;
+  function drawSchematic(real, target) {
+    lastReal = real;
+    const { ctx, w, h } = target || setup($("schem"));
     const g = drawGeom();
     const X0 = -10, X1 = 202, Y0 = -54, Y1 = g.cmosY + 14;
     const sc = Math.min(w / (X1 - X0), h / (Y1 - Y0));
@@ -1006,6 +1016,102 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   new MutationObserver(() => { if (root.getAttribute("data-theme") !== theme) applyTheme(); rerender(); })
     .observe(root, { attributes: true, attributeFilter: ["data-theme"] });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(rerender);
+
+  // ---------- export ภาพระบบเป็น SVG ----------
+  // context จำลองที่รับคำสั่งวาดแบบ Canvas 2D แล้วเขียนออกเป็น SVG (ใช้ฟังก์ชันวาดเดียวกับบนจอ)
+  function svgContext() {
+    const out = [];
+    let st = { fillStyle: "#000", strokeStyle: "#000", lineWidth: 1, dash: [], globalAlpha: 1, font: "12px sans-serif",
+      textAlign: "left", textBaseline: "alphabetic", lineJoin: "miter", m: [1, 0, 0, 1, 0, 0] };
+    const stack = [];
+    let path = "", cur = null;
+    const tp = (x, y) => { const m = st.m; return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; };
+    const n = (v) => +v.toFixed(2);
+    const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    function paint(c) { // -> [color, opacity]
+      c = String(c).trim();
+      const m8 = /^#([0-9a-f]{6})([0-9a-f]{2})$/i.exec(c);
+      if (m8) return ["#" + m8[1], parseInt(m8[2], 16) / 255];
+      return [c, 1];
+    }
+    const arcPts = (cx, cy, rx, ry, rot, a0, a1, ccw) => {
+      let span = a1 - a0;
+      if (ccw) { while (span > 0) span -= 2 * Math.PI; } else { while (span < 0) span += 2 * Math.PI; }
+      if (Math.abs(a1 - a0) >= 2 * Math.PI - 1e-9) span = ccw ? -2 * Math.PI : 2 * Math.PI;
+      const k = Math.max(8, Math.ceil(Math.abs(span) / (Math.PI / 24)));
+      for (let i = 0; i <= k; i++) {
+        const t = a0 + span * i / k, x0 = rx * Math.cos(t), y0 = ry * Math.sin(t);
+        const x = cx + x0 * Math.cos(rot) - y0 * Math.sin(rot), y = cy + x0 * Math.sin(rot) + y0 * Math.cos(rot);
+        const [X, Y] = tp(x, y); path += (path && cur ? " L" : " M") + n(X) + " " + n(Y); cur = [X, Y];
+      }
+    };
+    const ctx = {
+      get fillStyle() { return st.fillStyle; }, set fillStyle(v) { st.fillStyle = v; },
+      get strokeStyle() { return st.strokeStyle; }, set strokeStyle(v) { st.strokeStyle = v; },
+      get lineWidth() { return st.lineWidth; }, set lineWidth(v) { st.lineWidth = v; },
+      get globalAlpha() { return st.globalAlpha; }, set globalAlpha(v) { st.globalAlpha = v; },
+      get font() { return st.font; }, set font(v) { st.font = v; },
+      get textAlign() { return st.textAlign; }, set textAlign(v) { st.textAlign = v; },
+      get textBaseline() { return st.textBaseline; }, set textBaseline(v) { st.textBaseline = v; },
+      get lineJoin() { return st.lineJoin; }, set lineJoin(v) { st.lineJoin = v; },
+      setLineDash(d) { st.dash = d.slice(); },
+      save() { stack.push(JSON.parse(JSON.stringify(st))); },
+      restore() { if (stack.length) st = stack.pop(); },
+      translate(x, y) { const m = st.m; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; },
+      rotate(a) { const m = st.m, c = Math.cos(a), s2 = Math.sin(a); st.m = [m[0] * c + m[2] * s2, m[1] * c + m[3] * s2, -m[0] * s2 + m[2] * c, -m[1] * s2 + m[3] * c, m[4], m[5]]; },
+      setTransform() { st.m = [1, 0, 0, 1, 0, 0]; },
+      clearRect() {},
+      beginPath() { path = ""; cur = null; },
+      moveTo(x, y) { const [X, Y] = tp(x, y); path += " M" + n(X) + " " + n(Y); cur = [X, Y]; },
+      lineTo(x, y) { const [X, Y] = tp(x, y); path += (cur ? " L" : " M") + n(X) + " " + n(Y); cur = [X, Y]; },
+      closePath() { path += " Z"; },
+      arc(x, y, r, a0, a1, ccw) { arcPts(x, y, r, r, 0, a0, a1, ccw); },
+      ellipse(x, y, rx, ry, rot, a0, a1, ccw) { arcPts(x, y, rx, ry, rot, a0, a1, ccw); },
+      rect(x, y, w, h) { this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath(); },
+      fill() {
+        if (!path) return; const [c, o] = paint(st.fillStyle);
+        out.push(`<path d="${path.trim()}" fill="${esc(c)}"${o * st.globalAlpha < 1 ? ` fill-opacity="${n(o * st.globalAlpha)}"` : ""} stroke="none"/>`);
+      },
+      stroke() {
+        if (!path) return; const [c, o] = paint(st.strokeStyle);
+        const dash = st.dash.length ? ` stroke-dasharray="${st.dash.join(" ")}"` : "";
+        out.push(`<path d="${path.trim()}" fill="none" stroke="${esc(c)}" stroke-width="${n(st.lineWidth)}"${o * st.globalAlpha < 1 ? ` stroke-opacity="${n(o * st.globalAlpha)}"` : ""} stroke-linejoin="${st.lineJoin}"${dash}/>`);
+      },
+      fillRect(x, y, w, h) { this.beginPath(); this.rect(x, y, w, h); this.fill(); },
+      strokeRect(x, y, w, h) { this.beginPath(); this.rect(x, y, w, h); this.stroke(); },
+      fillText(t, x, y) {
+        const [X, Y] = tp(x, y), [c, o] = paint(st.fillStyle);
+        const fm = /^\s*(\d{3}|bold)?\s*([\d.]+)px\s+(.*)$/.exec(st.font) || [null, null, "12", "sans-serif"];
+        const anchor = { left: "start", start: "start", center: "middle", right: "end", end: "end" }[st.textAlign] || "start";
+        const base = { top: "hanging", middle: "central", bottom: "text-after-edge", alphabetic: "alphabetic" }[st.textBaseline] || "alphabetic";
+        out.push(`<text x="${n(X)}" y="${n(Y)}" font-family="${esc(fm[3])}" font-size="${fm[2]}"${fm[1] ? ` font-weight="${fm[1]}"` : ""} text-anchor="${anchor}" dominant-baseline="${base}" fill="${esc(c)}"${o * st.globalAlpha < 1 ? ` fill-opacity="${n(o * st.globalAlpha)}"` : ""}>${esc(t)}</text>`);
+      },
+    };
+    return { ctx, out };
+  }
+  function schematicSVG() {
+    const w = 1200, h = Math.round(1200 / 1.9);
+    const { ctx, out } = svgContext();
+    drawSchematic(lastReal || compute(), { ctx, w, h });
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">\n` +
+      `<rect width="100%" height="100%" fill="${col("--panel")}"/>\n${out.join("\n")}\n</svg>\n`;
+  }
+  window.slopeSim = { schematicSVG };
+  const svgMsg = (t) => { $("svgMsg").textContent = t; setTimeout(() => { if ($("svgMsg").textContent === t) $("svgMsg").textContent = ""; }, 4000); };
+  $("svgDl").addEventListener("click", () => {
+    const blob = new Blob([schematicSVG()], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = `slope-scan-diagram_x${state.p.toFixed(0)}mm.svg`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    svgMsg("สร้างไฟล์ SVG แล้ว");
+  });
+  $("svgCopy").addEventListener("click", () => {
+    const t = schematicSVG();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(() => svgMsg("คัดลอกโค้ด SVG แล้ว"), () => svgMsg("คัดลอกไม่ได้ในหน้านี้ ใช้ปุ่มดาวน์โหลดแทน"));
+    } else svgMsg("คัดลอกไม่ได้ในหน้านี้ ใช้ปุ่มดาวน์โหลดแทน");
+  });
 
   buildCps();
   render();
