@@ -88,7 +88,33 @@ canvas { display: block; width: 100%; max-width: 100%; touch-action: none; }
 .chip { font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-ink); }
 .chip.ok { background: var(--ok-bg); color: var(--ok-ink); }
 aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 14px; }
-@media (max-width: 1080px) { aside { position: static; } }
+#ctlToggle { display: none; }
+.sheet-handle { display: none; }
+/* จอเล็ก: แผงเครื่องมือเป็น bottom sheet เปิด/ปิดด้วยปุ่มลอย */
+@media (max-width: 1080px) {
+  body { padding-bottom: 88px; }
+  aside {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 30;
+    max-height: 50vh; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--bg); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.22);
+    padding: 6px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(105%); visibility: hidden; transition: transform 0.25s ease, visibility 0s linear 0.25s;
+  }
+  body.sheet-open aside { transform: none; visibility: visible; transition: transform 0.25s ease; }
+  .sheet-handle { display: block; position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 6px 0 4px; text-align: center; }
+  .sheet-handle span { display: inline-block; width: 44px; height: 5px; border-radius: 3px; background: var(--line); }
+  #ctlToggle {
+    display: inline-flex; align-items: center; gap: 6px; position: fixed; z-index: 31;
+    right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 0.95rem;
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+  body.sheet-open #ctlToggle { bottom: calc(50vh + 10px); }
+  body.sheet-open { padding-bottom: 52vh; }
+}
+@media (max-width: 1080px) and (prefers-reduced-motion: reduce) { aside, body.sheet-open aside { transition: none; } }
 fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; margin: 0; background: var(--panel); display: grid; gap: 10px; min-width: 0; }
 legend { font-family: var(--font-display); font-weight: 600; padding: 0 6px; font-size: 0.95rem; }
 .row { display: grid; gap: 2px; }
@@ -204,7 +230,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
       </section>
     </div>
 
-    <aside>
+    <aside id="controls" aria-label="แผงปรับค่า">
+      <div class="sheet-handle" aria-hidden="true"><span></span></div>
       <fieldset>
         <legend>Pentaprism บนสเตจ</legend>
         <div class="row"><label for="p">ตำแหน่งบนกระจก <output id="pOut"></output></label><input id="p" type="range" min="0" max="300" step="0.5" value="112"></div>
@@ -252,6 +279,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
         <p class="note">แบบจำลอง 2 มิติในระนาบแสง คิดการสะท้อนที่ผิวปริซึม ไม่คิดการหักเห เลนส์เป็นเลนส์บาง</p>
       </fieldset>
     </aside>
+    <button id="ctlToggle" type="button" aria-controls="controls" aria-expanded="false">ปรับค่า</button>
   </div>
 </div>
 
@@ -993,6 +1021,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     tick();
   });
   $("clearBtn").addEventListener("click", () => { state.scan = []; render(); });
+
+  // bottom sheet ของแผงปรับค่าบนจอเล็ก
+  $("ctlToggle").addEventListener("click", () => {
+    const open = document.body.classList.toggle("sheet-open");
+    $("ctlToggle").setAttribute("aria-expanded", String(open));
+    $("ctlToggle").textContent = open ? "ปิดแผงปรับค่า" : "ปรับค่า";
+    if (open) { // เลื่อนให้ภาพระบบอยู่บนสุด มองเห็นเหนือแผงปรับค่า
+      const card = $("schem").closest(".card");
+      requestAnimationFrame(() => window.scrollTo(0, card.getBoundingClientRect().top + window.scrollY - 8));
+    }
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("sheet-open")) $("ctlToggle").click(); });
 
   // theme: เริ่มที่โทนสว่าง มีปุ่มสลับ และจำค่าที่เลือกไว้ในเบราว์เซอร์นี้
   const root = document.documentElement;
