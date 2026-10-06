@@ -73,6 +73,7 @@ header p { margin: 4px 0 0; color: var(--muted); max-width: 72ch; }
 canvas { display: block; width: 100%; max-width: 100%; touch-action: none; }
 #schem { aspect-ratio: 1.9; min-width: 660px; }
 .scroll-x { overflow-x: auto; }
+.swipe-hint { display: none; font-size: 0.72rem; color: var(--muted); margin: 2px 0 0; }
 .chart { aspect-ratio: 1.75; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -113,6 +114,30 @@ aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); displ
   }
   body.sheet-open #ctlToggle { bottom: calc(50vh + 10px); }
   body.sheet-open { padding-bottom: 52vh; }
+}
+/* มือถือ: ย่อทุกอย่างให้กระชับขึ้น แผงปรับค่าเตี้ยลง */
+@media (max-width: 700px) {
+  body { font-size: 14px; padding-block: 14px 76px; }
+  .wrap, .main, .layout { gap: 12px; }
+  header p { font-size: 0.85rem; }
+  .card { padding: 10px; }
+  .card h2 { font-size: 0.95rem; margin-bottom: 4px; }
+  .card .sub { font-size: 0.78rem; }
+  #schem { min-width: 470px; }
+  .swipe-hint { display: block; }
+  .stat { padding: 8px 10px; }
+  .stat .v { font-size: 1.05rem; }
+  .stat .x, .stat .k { font-size: 0.72rem; }
+  button { font-size: 0.78rem; padding: 4px 8px; }
+  aside { max-height: 40vh; padding: 2px 10px calc(10px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
+  body.sheet-open { padding-bottom: 42vh; }
+  aside fieldset { padding: 6px 10px 8px; gap: 4px; border-radius: 8px; }
+  aside legend { font-size: 0.82rem; }
+  aside .row label { font-size: 0.76rem; }
+  aside .check, aside .note { font-size: 0.74rem; }
+  aside input[type="range"] { height: 18px; margin: 0; }
+  #ctlToggle { padding: 7px 13px; font-size: 0.85rem; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  body.sheet-open #ctlToggle { bottom: calc(40vh + 8px); }
 }
 @media (max-width: 1080px) and (prefers-reduced-motion: reduce) { aside, body.sheet-open aside { transition: none; } }
 fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; margin: 0; background: var(--panel); display: grid; gap: 10px; min-width: 0; }
@@ -162,6 +187,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
         </div>
         <p class="sub" id="schemNote">มุมในภาพขยาย ×K และระยะไม่ตามสเกล ตัวเลขทั้งหมดคำนวณจากขนาดจริง</p>
         <div class="scroll-x"><canvas id="schem" aria-label="ภาพระบบ autocollimator และเส้นแสง"></canvas></div>
+        <p class="swipe-hint">ปัดซ้าย-ขวาบนภาพเพื่อดูส่วนที่เหลือ</p>
         <div class="chips" id="chips" aria-live="polite"></div>
       </section>
 
