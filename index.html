@@ -59,14 +59,14 @@ body {
   background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
   margin: 0; padding-inline: 16px; padding-block: 20px 40px;
 }
-.wrap { max-width: 1320px; margin: 0 auto; display: grid; gap: 18px; }
+.wrap { max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 #themeBtn { flex: none; }
 header h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.35rem, 2.4vw, 1.9rem); margin: 0; text-wrap: balance; letter-spacing: 0.01em; }
 header p { margin: 4px 0 0; color: var(--muted); max-width: 72ch; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
 @media (max-width: 1080px) { .layout { grid-template-columns: minmax(0, 1fr); } }
-.main { display: grid; gap: 18px; min-width: 0; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
 .card h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; margin: 0 0 8px; letter-spacing: 0.02em; }
 .card .sub { color: var(--muted); font-size: 0.85rem; margin: -4px 0 8px; }
