@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slope Scan Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Layout: instrument bench — schematic + readouts in the main column, a sticky control rack on the right; stacks to one column on phones */
+:root {
+  --bg: #eef2f2;
+  --panel: #ffffff;
+  --ink: #15212a;
+  --muted: #5a6a73;
+  --line: #d3dcdf;
+  --accent: #0b7a74;
+  --accent-ink: #ffffff;
+  --laser: #d3283c;
+  --ret: #1d6bd0;
+  --ref: #4e5a62;
+  --glass: #cfe5f1;
+  --glass-edge: #6f8a99;
+  --surface: #e07a10;
+  --sample: #d9dfe2;
+  --warn-bg: #fff3d6;
+  --warn-ink: #7a4b00;
+  --ok-bg: #dff3ee;
+  --ok-ink: #0b5a55;
+  --sensor-bg: #0a1013;
+  --sensor-ink: #d8e6ea;
+  --sensor-spot: #4fd1ff;
+  --mark: #ffc94a;
+  --pa: #7b4fd0;
+  --pb: #148a5c;
+  --font-display: "Chakra Petch", "IBM Plex Sans Thai", "Tahoma", sans-serif;
+  --font-body: "IBM Plex Sans Thai", "Tahoma", "Thonburi", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1416; --panel: #161f22; --ink: #e2eaec; --muted: #93a4ab; --line: #2a373b;
+    --accent: #3cc2b8; --accent-ink: #062b28; --laser: #ff5c70; --ret: #5ea4ff; --ref: #a9b6bc;
+    --glass: #23414f; --glass-edge: #6e97aa; --surface: #ff9a3c; --sample: #2b3539;
+    --warn-bg: #3a2c0c; --warn-ink: #ffd27a; --ok-bg: #12332f; --ok-ink: #7fe0d4; --pa: #b394ff; --pb: #4fd69c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1416; --panel: #161f22; --ink: #e2eaec; --muted: #93a4ab; --line: #2a373b;
+  --accent: #3cc2b8; --accent-ink: #062b28; --laser: #ff5c70; --ret: #5ea4ff; --ref: #a9b6bc;
+  --glass: #23414f; --glass-edge: #6e97aa; --surface: #ff9a3c; --sample: #2b3539;
+  --warn-bg: #3a2c0c; --warn-ink: #ffd27a; --ok-bg: #12332f; --ok-ink: #7fe0d4; --pa: #b394ff; --pb: #4fd69c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  margin: 0; padding-inline: 16px; padding-block: 20px 40px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; display: grid; gap: 18px; }
+.head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+#themeBtn { flex: none; }
+header h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.35rem, 2.4vw, 1.9rem); margin: 0; text-wrap: balance; letter-spacing: 0.01em; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 72ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 1080px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.main { display: grid; gap: 18px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.card h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; margin: 0 0 8px; letter-spacing: 0.02em; }
+.card .sub { color: var(--muted); font-size: 0.85rem; margin: -4px 0 8px; }
+canvas { display: block; width: 100%; max-width: 100%; touch-action: none; }
+#schem { aspect-ratio: 1.9; min-width: 660px; }
+.scroll-x { overflow-x: auto; }
+.chart { aspect-ratio: 1.75; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 720px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .stats { grid-template-columns: minmax(0, 1fr); } }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.stat .k { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.02em; }
+.stat .v { font-family: var(--font-mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat .v small { font-size: 0.8rem; color: var(--muted); margin-left: 4px; }
+.stat .x { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 820px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-height: 26px; }
+.chip { font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-ink); }
+.chip.ok { background: var(--ok-bg); color: var(--ok-ink); }
+aside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 14px; }
+@media (max-width: 1080px) { aside { position: static; } }
+fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; margin: 0; background: var(--panel); display: grid; gap: 10px; min-width: 0; }
+legend { font-family: var(--font-display); font-weight: 600; padding: 0 6px; font-size: 0.95rem; }
+.row { display: grid; gap: 2px; }
+.row label { display: flex; justify-content: space-between; gap: 8px; font-size: 0.86rem; }
+.row output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--accent); white-space: nowrap; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+select { font-family: var(--font-body); font-size: 0.85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+input[type="number"] { width: 100%; font-family: var(--font-mono); font-size: 0.85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+button { font-family: var(--font-body); font-size: 0.85rem; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cps { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; margin-top: 8px; }
+.cps label { font-size: 0.7rem; color: var(--muted); display: grid; gap: 2px; font-family: var(--font-mono); text-align: center; }
+.cps input { padding: 3px 2px; text-align: center; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; }
+.note { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.formula { font-family: var(--font-mono); font-size: 0.85rem; background: var(--bg); border-radius: 8px; padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="head-row">
+      <h1>จำลองการวัด slope ด้วย autocollimator + pentaprism สแกน</h1>
+      <button id="themeBtn" type="button" aria-label="สลับโทนสว่าง/มืด">โทนมืด</button>
+    </div>
+    <p>ปรับโปรไฟล์ slope ของกระจก ตำแหน่งและมุมเอียงของ pentaprism ค่า f และระยะในระบบ แล้วดูเส้นแสงกับจุดบน CMOS เปลี่ยนตาม กดสแกนเพื่อวัดตลอดความยาวกระจก</p>
+  </header>
+
+  <div class="layout">
+    <div class="main">
+      <section class="card">
+        <h2>ระบบและเส้นแสง</h2>
+        <p class="sub" id="schemNote">มุมในภาพขยาย ×K และระยะไม่ตามสเกล ตัวเลขทั้งหมดคำนวณจากขนาดจริง</p>
+        <div class="scroll-x"><canvas id="schem" aria-label="ภาพระบบ autocollimator และเส้นแสง"></canvas></div>
+        <div class="chips" id="chips" aria-live="polite"></div>
+      </section>
+
+      <div class="stats" aria-live="polite">
+        <div class="stat"><div class="k">slope จริงที่จุดวัด θ</div><div class="v" id="sTheta">–</div><div class="x" id="sThetaX">–</div></div>
+        <div class="stat"><div class="k">จุดเลื่อนบน CMOS Δ</div><div class="v" id="sDelta">–</div><div class="x" id="sDeltaX">–</div></div>
+        <div class="stat"><div class="k">slope ที่คำนวณกลับ ½·atan(Δ/f)</div><div class="v" id="sBack">–</div><div class="x" id="sBackX">–</div></div>
+        <div class="stat"><div class="k">ผลของปริซึมเอียงต่อ Δ</div><div class="v" id="sTilt">–</div><div class="x" id="sTiltX">–</div></div>
+      </div>
+
+      <div class="two">
+        <section class="card">
+          <h2>โปรไฟล์ slope ของกระจก</h2>
+          <p class="sub">ลากจุดบนกราฟหรือพิมพ์ค่าใต้กราฟ (µrad) · จุดสีน้ำเงินคือค่าที่วัดได้จากการสแกน</p>
+          <canvas id="slopeChart" class="chart" aria-label="กราฟ slope ตามตำแหน่ง"></canvas>
+          <div class="cps" id="cps"></div>
+        </section>
+        <section class="card">
+          <h2>รูปร่างผิวจาก slope (ความสูง)</h2>
+          <p class="sub">h(x) = ∫ θ dx · 1 µrad × 1 mm = 1 nm · เส้นทึบคือผิวจริง จุดคือที่ได้จากการสแกน</p>
+          <canvas id="heightChart" class="chart" aria-label="กราฟความสูงผิว"></canvas>
+          <p class="note" id="rmsNote">–</p>
+        </section>
+      </div>
+
+      <div class="two">
+        <section class="card">
+          <div class="card-head">
+            <h2>Slope error</h2>
+            <select id="fitMode" aria-label="รูปทรงที่ลบออก">
+              <option value="1">ลบค่าเอียงเฉลี่ย</option>
+              <option value="2" selected>ลบเส้นตรง (ความโค้ง R)</option>
+            </select>
+          </div>
+          <p class="sub">slope ที่เหลือหลังลบรูปทรงที่ fit ได้ · เส้นทึบคือผิวจริง จุดคือค่าที่วัดได้ แท่งเทาคือความคลาดของการวัด</p>
+          <canvas id="errChart" class="chart" aria-label="กราฟ slope error"></canvas>
+          <p class="note" id="errNote">–</p>
+        </section>
+        <section class="card">
+          <h2>หน้า CMOS (ซูม)</h2>
+          <p class="sub" id="faceNote">–</p>
+          <canvas id="faceChart" style="aspect-ratio: 1.45" aria-label="ภาพจุดแสงบนหน้า CMOS แบบซูม"></canvas>
+          <div class="row" style="margin-top:8px"><label for="zoom">ช่วงที่แสดง <output id="zoomOut"></output></label><input id="zoom" type="range" min="0" max="3.5" step="0.01" value="1"></div>
+          <label class="check"><input id="autoZoom" type="checkbox" checked> ปรับช่วงอัตโนมัติให้เห็นทั้งจุดแสง</label>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>ระยะ d บน sensor ระหว่าง 2 ตำแหน่ง</h2>
+        <p class="sub">เลือกตำแหน่ง A และ B บนกระจกที่แผงด้านขวา · d คือระยะระหว่างจุดแสงของสองตำแหน่งบนเซนเซอร์ ใช้หาผลต่างของ slope ระหว่างสองจุดได้โดยไม่ต้องรู้ตำแหน่งอ้างอิง</p>
+        <canvas id="dChart" style="aspect-ratio: 4.2" aria-label="ตำแหน่งจุด A และ B บนเซนเซอร์และระยะ d"></canvas>
+        <div class="stats" style="margin-top:10px">
+          <div class="stat"><div class="k">จุด A: Δ<sub>A</sub></div><div class="v" id="dA">–</div><div class="x" id="dAX">–</div></div>
+          <div class="stat"><div class="k">จุด B: Δ<sub>B</sub></div><div class="v" id="dB">–</div><div class="x" id="dBX">–</div></div>
+          <div class="stat"><div class="k">ระยะ d = Δ<sub>B</sub> − Δ<sub>A</sub></div><div class="v" id="dD">–</div><div class="x" id="dDX">–</div></div>
+          <div class="stat"><div class="k">ผลต่าง slope จาก d</div><div class="v" id="dTh">–</div><div class="x" id="dThX">–</div></div>
+        </div>
+        <div class="formula" id="dFormula" style="margin-top:10px">–</div>
+      </section>
+
+      <section class="card">
+        <h2>ภาพบน CMOS (ตัดแนวนอน)</h2>
+        <p class="sub" id="cmosNote">–</p>
+        <canvas id="cmosChart" class="chart" style="aspect-ratio: 3.2" aria-label="ความเข้มแสงบนพิกเซลของ CMOS"></canvas>
+        <div class="formula" id="formula">–</div>
+      </section>
+    </div>
+
+    <aside>
+      <fieldset>
+        <legend>Pentaprism บนสเตจ</legend>
+        <div class="row"><label for="p">ตำแหน่งบนกระจก <output id="pOut"></output></label><input id="p" type="range" min="0" max="300" step="0.5" value="112"></div>
+        <div class="row"><label for="tau">มุมเอียงปริซึม (ในระนาบแสง) <output id="tauOut"></output></label><input id="tau" type="range" min="-10000" max="10000" step="10" value="0"></div>
+        <div class="row"><label for="step">ระยะก้าวตอนสแกน <output id="stepOut"></output></label><input id="step" type="range" min="1" max="20" step="1" value="5"></div>
+        <div class="btns"><button class="primary" id="scanBtn" type="button">สแกนทั้งกระจก</button><button id="clearBtn" type="button">ล้างผลสแกน</button></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>ระยะ d: 2 ตำแหน่ง</legend>
+        <div class="row"><label for="pA">ตำแหน่ง A <output id="pAOut"></output></label><input id="pA" type="range" min="0" max="300" step="0.5" value="75"></div>
+        <div class="row"><label for="pB">ตำแหน่ง B <output id="pBOut"></output></label><input id="pB" type="range" min="0" max="300" step="0.5" value="187.5"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Autocollimator</legend>
+        <div class="row"><label for="f">ระยะโฟกัสเลนส์ f <output id="fOut"></output></label><input id="f" type="range" min="100" max="2000" step="10" value="500"></div>
+        <div class="row"><label for="d">ระยะ BS ถึงเลนส์ <output id="dOut"></output></label><input id="d" type="range" min="20" max="500" step="5" value="80"></div>
+        <div class="row"><label for="D0">ระยะ BS ถึงต้นกระจก <output id="D0Out"></output></label><input id="D0" type="range" min="100" max="2000" step="10" value="300"></div>
+        <div class="row"><label for="beam">ขนาดลำแสง <output id="beamOut"></output></label><input id="beam" type="range" min="1" max="10" step="0.5" value="3"></div>
+        <div class="row"><label for="lam">ความยาวคลื่นเลเซอร์ <output id="lamOut"></output></label><input id="lam" type="range" min="400" max="1100" step="5" value="635"></div>
+        <div class="row"><label for="pix">ขนาดพิกเซล CMOS <output id="pixOut"></output></label><input id="pix" type="range" min="1" max="15" step="0.1" value="5.5"></div>
+        <div class="row"><label for="sensor">ความกว้างเซนเซอร์ <output id="sensorOut"></output></label><input id="sensor" type="range" min="1" max="25" step="0.1" value="6.6"></div>
+        <div class="row"><label for="sigma">ความคลาดในการหาตำแหน่งจุด σ <output id="sigmaOut"></output></label><input id="sigma" type="range" min="0" max="3" step="0.05" value="0.3"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>กระจก (sample)</legend>
+        <div class="row"><label for="L">ความยาวกระจก <output id="LOut"></output></label><input id="L" type="range" min="50" max="1000" step="10" value="300"></div>
+        <div class="btns" aria-label="โปรไฟล์สำเร็จรูป">
+          <button type="button" data-preset="example">ตัวอย่าง</button>
+          <button type="button" data-preset="flat">แบน</button>
+          <button type="button" data-preset="tilt">เอียงคงที่</button>
+          <button type="button" data-preset="curve">โค้ง (R)</button>
+          <button type="button" data-preset="wave">เป็นคลื่น</button>
+          <button type="button" data-preset="random">สุ่ม</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>การแสดงผล</legend>
+        <label class="check"><input id="autoK" type="checkbox" checked> ขยายมุมอัตโนมัติ</label>
+        <div class="row"><label for="K">ตัวขยายมุมในภาพ K <output id="KOut"></output></label><input id="K" type="range" min="0" max="5" step="0.01" value="3.3"></div>
+        <label class="check"><input id="edges" type="checkbox" checked> แสดงขอบลำแสง</label>
+        <p class="note">แบบจำลอง 2 มิติในระนาบแสง คิดการสะท้อนที่ผิวปริซึม ไม่คิดการหักเห เลนส์เป็นเลนส์บาง</p>
+      </fieldset>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const N = 9;
+  const PRESETS = {
+    example: () => [0.0, 1.2, 2.6, 1.4, -0.6, -2.1, -1.2, 0.5, 1.6],
+    flat: () => new Array(N).fill(0),
+    tilt: () => new Array(N).fill(3),
+    curve: () => { const R = 4e7; return Array.from({ length: N }, (_, i) => round1(((i / (N - 1) - 0.5) * state.L) / R * 1e6)); },
+    wave: () => Array.from({ length: N }, (_, i) => round1(2.2 * Math.sin(2 * Math.PI * i / (N - 1) * 1.5))),
+    random: () => Array.from({ length: N }, () => round1((Math.random() * 2 - 1) * 3)),
+  };
+  function round1(v) { return Math.round(v * 10) / 10; }
+
+  const state = {
+    cp: PRESETS.example(), L: 300, p: 112, tau: 0, step: 5, f: 500, d: 80, D0: 300, beam: 3,
+    lam: 635, pix: 5.5, sensor: 6.6, sigma: 0.3, autoK: true, K: 2000, edges: true,
+    scan: [], scanning: false, pA: 75, pB: 187.5,
+  };
+
+  // ---------- slope profile (µrad) ----------
+  function slopeAt(u) {
+    const L = state.L, cp = state.cp;
+    const t = Math.min(Math.max(u / L, 0), 1) * (N - 1);
+    const i = Math.min(Math.floor(t), N - 2), s = t - i;
+    const p0 = cp[Math.max(i - 1, 0)], p1 = cp[i], p2 = cp[i + 1], p3 = cp[Math.min(i + 2, N - 1)];
+    return 0.5 * ((2 * p1) + (-p0 + p2) * s + (2 * p0 - 5 * p1 + 4 * p2 - p3) * s * s + (-p0 + 3 * p1 - 3 * p2 + p3) * s * s * s);
+  }
+  function heightProfile(n) { // nm, integrate slope (µrad) over mm
+    const xs = [], hs = []; let h = 0, prev = slopeAt(0);
+    for (let k = 0; k <= n; k++) {
+      const u = state.L * k / n, s = slopeAt(u);
+      if (k > 0) h += 0.5 * (prev + s) * (state.L / n);
+      xs.push(u); hs.push(h); prev = s;
+    }
+    return { xs, hs };
+  }
+
+  // ---------- 2D geometry ----------
+  const V = (x, y) => ({ x, y });
+  const add = (a, b) => V(a.x + b.x, a.y + b.y), sub = (a, b) => V(a.x - b.x, a.y - b.y), mul = (a, k) => V(a.x * k, a.y * k);
+  const dot = (a, b) => a.x * b.x + a.y * b.y, cross = (a, b) => a.x * b.y - a.y * b.x;
+  const norm = (a) => { const l = Math.hypot(a.x, a.y); return V(a.x / l, a.y / l); };
+  function hitLine(p, d, a, b) { const e = sub(b, a); const t = cross(sub(a, p), e) / cross(d, e); return add(p, mul(d, t)); }
+  function reflect(d, a, b) { const e = norm(sub(b, a)); const n = V(-e.y, e.x); return sub(d, mul(n, 2 * dot(d, n))); }
+  function rot(p, c, ang) { const s = Math.sin(ang), co = Math.cos(ang); const q = sub(p, c); return V(c.x + q.x * co - q.y * s, c.y + q.x * s + q.y * co); }
+
+  // pentaprism: หน้ารับแสงซ้าย (แนวตั้ง) หน้าแสงออกล่าง (แนวนอน) มุมภายใน 90°, 112.5° ×4
+  function pentaprism(x0, y0, s, tau) {
+    const c = 0.4 * s, r = (s - c / Math.SQRT2) / (Math.cos(Math.PI / 8) - Math.cos(3 * Math.PI / 8));
+    const pts = [V(0, 0), V(s, 0)];
+    for (const [deg, len] of [[67.5, r], [135, c], [202.5, r]]) {
+      const q = pts[pts.length - 1], a = deg * Math.PI / 180;
+      pts.push(V(q.x + len * Math.cos(a), q.y + len * Math.sin(a)));
+    }
+    const P = pts.map((q) => V(q.x + x0, q.y + y0));
+    const cen = P.reduce((acc, q) => add(acc, mul(q, 1 / P.length)), V(0, 0));
+    return P.map((q) => rot(q, cen, tau));
+  }
+
+  // trace one ray: laser → (BS) → pentaprism → sample → back → BS → lens → CMOS
+  function trace(g, yOff, slopeRadAt, tau) {
+    const v = pentaprism(g.prismX, -g.s / 2, g.s, tau);
+    const bsA = V(g.bsX - 1, 1), bsB = V(g.bsX + 1, -1);
+    let p = V(g.laserX, yOff), d = V(1, 0);
+    const out = [p];
+    p = hitLine(p, d, v[4], v[0]); out.push(p);
+    p = hitLine(p, d, v[1], v[2]); d = reflect(d, v[1], v[2]); out.push(p);
+    p = hitLine(p, d, v[3], v[4]); d = reflect(d, v[3], v[4]); out.push(p);
+    p = hitLine(p, d, V(0, -g.H), V(1, -g.H)); out.push(p);
+    const hit = p, u = g.uOf(hit.x), th = slopeRadAt(u);
+    const downDir = d;
+    d = reflect(d, p, add(p, V(Math.cos(th), Math.sin(th))));
+    const upDir = d;
+    const ret = [p];
+    p = hitLine(p, d, v[0], v[1]); ret.push(p);
+    p = hitLine(p, d, v[3], v[4]); d = reflect(d, v[3], v[4]); ret.push(p);
+    p = hitLine(p, d, v[1], v[2]); d = reflect(d, v[1], v[2]); ret.push(p);
+    p = hitLine(p, d, v[4], v[0]); ret.push(p);
+    p = hitLine(p, d, bsA, bsB); ret.push(p);
+    const bsOff = Math.hypot(p.x - g.bsX, p.y);
+    d = reflect(d, bsA, bsB);
+    p = hitLine(p, d, V(0, g.lensY), V(1, g.lensY)); ret.push(p);
+    const lensH = p.x - g.bsX;
+    const slope2 = d.x / d.y - lensH / g.f;
+    d = V(slope2, 1);
+    p = hitLine(p, d, V(0, g.cmosY), V(1, g.cmosY)); ret.push(p);
+    return { v, out, ret, hit, u, th, downDir, upDir, cmosX: p.x - g.bsX, bsOff, lensH };
+  }
+
+  function realGeom(p = state.p) {
+    const s = 25;
+    return { laserX: -80, bsX: 0, lensY: state.d, f: state.f, cmosY: state.d + state.f, s, H: 60,
+      prismX: state.D0 + p - s / 2, uOf: (x) => x - state.D0 };
+  }
+  const nrm = (v, a, b) => (v - a) / (b - a);
+  function drawGeom() {
+    const s = 12, D0 = 70, Ls = 120;
+    const lensY = 13 + 9 * nrm(state.d, 20, 500), f = 15 + 17 * nrm(state.f, 100, 2000);
+    return { laserX: 2, bsX: 26, bsHalf: 8, lensY, f, cmosY: lensY + f, s, H: 40, D0, Ls,
+      prismX: D0 + (state.p / state.L) * Ls - s / 2, uOf: (x) => (x - D0) / Ls * state.L };
+  }
+
+  // ---------- drawing helpers ----------
+  const css = () => getComputedStyle(document.documentElement);
+  function col(name) { return css().getPropertyValue(name).trim(); }
+  function setup(cv) {
+    const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    return { ctx, w, h };
+  }
+  function arrowHead(ctx, a, b, color, size) {
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    ctx.save(); ctx.fillStyle = color; ctx.translate(b.x, b.y); ctx.rotate(ang);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-size, size * 0.45); ctx.lineTo(-size, -size * 0.45); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  const fmt = (v, n) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(n);
+
+  // ---------- schematic ----------
+  let lastDrawClamp = { theta: false, tau: false };
+  function drawSchematic(real) {
+    const cv = $("schem"), { ctx, w, h } = setup(cv);
+    const g = drawGeom();
+    const X0 = -10, X1 = 202, Y0 = -54, Y1 = g.cmosY + 14;
+    const sc = Math.min(w / (X1 - X0), h / (Y1 - Y0));
+    const ox = (w - sc * (X1 - X0)) / 2, oy = (h - sc * (Y1 - Y0)) / 2;
+    const T = (q) => V(ox + (q.x - X0) * sc, oy + (Y1 - q.y) * sc);
+    const ink = col("--ink"), muted = col("--muted"), line = col("--line"), laser = col("--laser"), ret = col("--ret");
+    const glass = col("--glass"), gEdge = col("--glass-edge"), surf = col("--surface"), sample = col("--sample"), panel = col("--panel");
+    const fontS = Math.max(10, Math.min(13, sc * 3.1));
+    ctx.font = `${fontS}px ${col("--font-body")}`;
+    ctx.lineJoin = "round";
+
+    // angle exaggeration with clamps (keeps the drawing readable)
+    const K = state.K, TH_MAX = 0.75 * Math.PI / 180, TAU_MAX = 6 * Math.PI / 180;
+    lastDrawClamp = { theta: false, tau: false };
+    const thDraw = (u) => { let t = slopeAt(u) * 1e-6 * K; if (Math.abs(t) > TH_MAX) { lastDrawClamp.theta = true; t = Math.sign(t) * TH_MAX; } return t; };
+    let tauD = state.tau * 1e-6 * K; if (Math.abs(tauD) > TAU_MAX) { lastDrawClamp.tau = true; tauD = Math.sign(tauD) * TAU_MAX; }
+
+    const poly = (pts, fill, stroke, dash) => {
+      ctx.beginPath(); pts.forEach((q, i) => { const P = T(q); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); }); ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.2; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]); }
+    };
+    const rect = (x, y, wd, ht, fill, stroke) => poly([V(x, y), V(x + wd, y), V(x + wd, y + ht), V(x, y + ht)], fill, stroke);
+    const text = (s, q, align, color, base) => { const P = T(q); ctx.fillStyle = color || ink; ctx.textAlign = align || "left"; ctx.textBaseline = base || "middle"; ctx.fillText(s, P.x, P.y); };
+    const path = (pts, color, lw, dash) => { ctx.beginPath(); pts.forEach((q, i) => { const P = T(q); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); }); ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]); };
+
+    // housing
+    rect(-6, -14, g.bsX + 28, g.cmosY + 22, panel, line);
+    ctx.font = `600 ${fontS * 1.05}px ${col("--font-display")}`; text("Autocollimator", V(-4, g.cmosY + 5), "left", ink); ctx.font = `${fontS}px ${col("--font-body")}`;
+    // laser
+    rect(-3, -3, 11, 6, laser + "33", laser); text("Laser", V(2.5, 0), "center", ink);
+    // BS
+    rect(g.bsX - g.bsHalf, -g.bsHalf, 2 * g.bsHalf, 2 * g.bsHalf, glass, gEdge);
+    path([V(g.bsX - g.bsHalf, g.bsHalf), V(g.bsX + g.bsHalf, -g.bsHalf)], gEdge, 1.2);
+    text("BS", V(g.bsX, -g.bsHalf - 2.5), "center", muted);
+    // lens (ellipse)
+    const Lc = T(V(g.bsX, g.lensY));
+    ctx.beginPath(); ctx.ellipse(Lc.x, Lc.y, 10 * sc, 1.3 * sc, 0, 0, 2 * Math.PI); ctx.fillStyle = glass; ctx.fill(); ctx.strokeStyle = gEdge; ctx.lineWidth = 1.2; ctx.stroke();
+    text("เลนส์", V(g.bsX + 11, g.lensY), "left", ink);
+    // CMOS
+    rect(g.bsX - 9, g.cmosY, 18, 6, sample, gEdge);
+    path([V(g.bsX - 8, g.cmosY), V(g.bsX + 8, g.cmosY)], ink, 3);
+    text("CMOS", V(g.bsX, g.cmosY + 3), "center", ink);
+    // dimensions d and f
+    const dim = (x, ya, yb, label) => {
+      path([V(x, ya), V(x, yb)], muted, 1); arrowHead(ctx, T(V(x, (ya + yb) / 2)), T(V(x, yb)), muted, 6); arrowHead(ctx, T(V(x, (ya + yb) / 2)), T(V(x, ya)), muted, 6);
+      text(label, V(x - 1.2, (ya + yb) / 2), "right", muted);
+    };
+    dim(g.bsX - 12, 0, g.lensY, "BS–เลนส์");
+    text(`${state.d} mm`, V(g.bsX - 13.2, g.lensY / 2 - 3.2), "right", muted);
+    dim(g.bsX - 12, g.lensY, g.cmosY, `f = ${state.f} mm`);
+
+    // stage + sample
+    const railY = g.s / 2 + 9;
+    rect(g.D0 - 6, railY, g.Ls + 12, 1.6, sample, gEdge);
+    text("สเตจเลื่อน", V(g.D0 - 6, railY + 4), "left", muted);
+    rect(g.D0, -g.H - 5, g.Ls, 5, sample, gEdge);
+    path([V(g.D0, -g.H), V(g.D0 + g.Ls, -g.H)], muted, 2.4);
+    text(`Sample ยาว ${state.L} mm`, V(g.D0, -g.H - 12), "left", ink);
+
+    // beam rays (draw geometry, exaggerated angles)
+    const offs = state.edges ? [-(0.8 + 2.6 * nrm(state.beam, 1, 10)), 0, 0.8 + 2.6 * nrm(state.beam, 1, 10)] : [0];
+    let center = null;
+    offs.forEach((o) => {
+      const r = trace(g, o, thDraw, tauD);
+      if (o === 0) center = r;
+      const lw = o === 0 ? 1.8 : 0.9, a = o === 0 ? 1 : 0.55;
+      ctx.globalAlpha = a;
+      path(r.out, laser, lw);
+      path(r.ret, ret, lw, [5, 4]);
+      ctx.globalAlpha = 1;
+    });
+    // prism + carriage on top of rays outline
+    const v = center.v;
+    poly(v, glass + "cc", gEdge);
+    const top = Math.max(...v.map((q) => q.y));
+    const cx = v.reduce((s2, q) => s2 + q.x, 0) / v.length;
+    rect(cx - 4, top, 8, railY - top, sample, gEdge);
+    path(center.out.slice(1), laser, 1.8); path(center.ret.slice(1, 5), ret, 1.8, [5, 4]);
+    text("Pentaprism", V(g.prismX + g.s / 2, -g.s / 2 - 4.5), "center", ink);
+    // arrows on rays
+    arrowHead(ctx, T(V(40, 0)), T(V(44, 0)), laser, 8);
+    const hit = center.hit;
+    arrowHead(ctx, T(add(hit, V(0, 14))), T(add(hit, V(0, 10))), laser, 8);
+    const rr = center.ret;
+    arrowHead(ctx, T(add(hit, mul(center.upDir, 16))), T(add(hit, mul(center.upDir, 20))), ret, 8);
+    arrowHead(ctx, T(V(52, rr[5].y + (rr[4].y - rr[5].y) * 0.4)), T(V(48, rr[5].y + (rr[4].y - rr[5].y) * 0.37)), ret, 8);
+
+    // ตำแหน่ง A และ B บนกระจก
+    [["A", state.pA, col("--pa")], ["B", state.pB, col("--pb")]].forEach(([nm, pp, cc]) => {
+      const xx = g.D0 + pp / state.L * g.Ls;
+      path([V(xx, -g.H - 5), V(xx, -g.H)], cc, 2.4);
+      ctx.font = `600 ${fontS}px ${col("--font-body")}`; text(nm, V(xx, -g.H - 7.5), "center", cc, "middle");
+      ctx.font = `${fontS}px ${col("--font-body")}`;
+    });
+    // local surface tilt at hit
+    const thH = center.th, tdir = V(Math.cos(thH), Math.sin(thH));
+    path([sub(hit, mul(tdir, 9)), add(hit, mul(tdir, 9))], surf, 4);
+    text("θ", add(hit, V(10.5, 1.4)), "left", surf);
+    text("2θ", add(hit, V(thH >= 0 ? -3 : 1.5, 17)), thH >= 0 ? "right" : "left", ret);
+    text(`x = ${state.p.toFixed(1)} mm`, V(g.prismX + g.s / 2, -g.s / 2 - 10.5), "center", muted);
+
+    // CMOS reference + spot
+    const ref = T(V(g.bsX, g.cmosY));
+    ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ref.x, ref.y - 6); ctx.lineTo(ref.x, ref.y + 6); ctx.stroke();
+    const sp = T(V(g.bsX + center.cmosX, g.cmosY));
+    ctx.fillStyle = ret; ctx.beginPath(); ctx.arc(sp.x, sp.y, 4, 0, 2 * Math.PI); ctx.fill();
+
+    // inset: ซูมที่ CMOS ด้วยค่า Δ จริง (µm)
+    const dUm = real.deltaUm;
+    const ix0 = 52, ix1 = 116, iy0 = 25, iy1 = 49, icx = (ix0 + ix1) / 2, half = (ix1 - ix0) / 2 - 4;
+    const Wum = Math.max(2.5 * Math.abs(dUm), 2);
+    const Xi = (um) => icx + um / Wum * half;
+    ctx.setLineDash([2, 3]); ctx.strokeStyle = muted; ctx.lineWidth = 0.8;
+    ctx.beginPath(); let A1 = T(V(g.bsX + 9, g.cmosY + 6)), B1 = T(V(ix0, iy1)); ctx.moveTo(A1.x, A1.y); ctx.lineTo(B1.x, B1.y);
+    A1 = T(V(g.bsX + 9, g.cmosY)); B1 = T(V(ix0, iy0)); ctx.moveTo(A1.x, A1.y); ctx.lineTo(B1.x, B1.y); ctx.stroke(); ctx.setLineDash([]);
+    rect(ix0, iy0, ix1 - ix0, iy1 - iy0, panel, ink);
+    const sy = iy0 + 9;
+    path([V(ix0 + 3, sy), V(ix1 - 3, sy)], ink, 3);
+    const pixW = state.pix / Wum * half;
+    if (pixW * sc > 4) {
+      for (let k = Math.ceil(-Wum / state.pix); k * state.pix <= Wum; k++) path([V(Xi(k * state.pix), sy - 1.2), V(Xi(k * state.pix), sy + 1.2)], muted, 0.7);
+    }
+    path([V(icx, sy - 4), V(icx, sy + 6)], muted, 1.2, [3, 2]);
+    const spx = T(V(Xi(dUm), sy));
+    ctx.fillStyle = ret; ctx.beginPath(); ctx.arc(spx.x, spx.y, Math.max(4, sc * 1.6), 0, 2 * Math.PI); ctx.fill();
+    if (Math.abs(dUm) > 1e-6) {
+      const ya = sy + 5;
+      path([V(icx, ya), V(Xi(dUm), ya)], ink, 1);
+      arrowHead(ctx, T(V(icx, ya)), T(V(Xi(dUm), ya)), ink, 7);
+    }
+    ctx.font = `600 ${fontS}px ${col("--font-body")}`;
+    text("ซูมที่ CMOS", V(ix0 + 2.5, iy1 - 3.5), "left", ink);
+    ctx.font = `${fontS}px ${col("--font-mono")}`;
+    text(`Δ = ${fmt(dUm, 3)} µm`, V(ix1 - 2.5, iy1 - 3.5), "right", ret);
+    ctx.font = `${fontS * 0.85}px ${col("--font-body")}`;
+    text(`กรอบกว้าง ±${Wum < 10 ? Wum.toFixed(1) : Wum.toFixed(0)} µm · ขีด = 1 พิกเซล`, V(ix0 + 2.5, sy - 4.5), "left", muted);
+    text("อ้างอิง", V(icx, sy + 8), "center", muted);
+    ctx.font = `${fontS}px ${col("--font-body")}`;
+  }
+
+  // ---------- charts ----------
+  function axes(ctx, w, h, xr, yr, xlab, ylab, padL = 46) {
+    const pad = { l: padL, r: 12, t: 10, b: 32 };
+    const X = (x) => pad.l + (x - xr[0]) / (xr[1] - xr[0]) * (w - pad.l - pad.r);
+    const Y = (y) => h - pad.b - (y - yr[0]) / (yr[1] - yr[0]) * (h - pad.t - pad.b);
+    const muted = col("--muted"), line = col("--line");
+    ctx.font = `11px ${col("--font-mono")}`; ctx.fillStyle = muted; ctx.strokeStyle = line; ctx.lineWidth = 1;
+    const ticks = (a, b, n) => { const step = niceStep((b - a) / n); const out = []; for (let t = Math.ceil(a / step) * step; t <= b + 1e-9; t += step) out.push(+t.toFixed(10)); return out; };
+    ticks(yr[0], yr[1], 5).forEach((t) => { ctx.beginPath(); ctx.moveTo(pad.l, Y(t)); ctx.lineTo(w - pad.r, Y(t)); ctx.stroke(); ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(fmtTick(t), pad.l - 6, Y(t)); });
+    ticks(xr[0], xr[1], 6).forEach((t) => { ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(fmtTick(t), X(t), h - pad.b + 5); });
+    ctx.font = `11px ${col("--font-body")}`; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(xlab, w - pad.r, h - 2);
+    ctx.save(); ctx.translate(11, pad.t); ctx.rotate(0); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(ylab, pad.l - 40, 0); ctx.restore();
+    return { X, Y, pad };
+  }
+  function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw))); const m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+  function fmtTick(t) { const a = Math.abs(t); return a >= 1000 ? t.toFixed(0) : a >= 10 ? t.toFixed(0) : a >= 1 ? t.toFixed(1).replace(/\.0$/, "") : t.toFixed(2).replace(/0$/, ""); }
+
+  let slopeRange = 5, dragIdx = -1, slopeMap = null;
+  function slopeYRange() {
+    const m = Math.max(1, ...state.cp.map(Math.abs), ...state.scan.map((s) => Math.abs(s.th)));
+    return Math.ceil(m * 1.35);
+  }
+  function drawSlope() {
+    const cv = $("slopeChart"), { ctx, w, h } = setup(cv);
+    if (dragIdx < 0) slopeRange = slopeYRange();
+    const A = axes(ctx, w, h, [0, state.L], [-slopeRange, slopeRange], "ตำแหน่ง x (mm)", "slope (µrad)");
+    slopeMap = A;
+    const surf = col("--surface"), ret = col("--ret"), muted = col("--muted"), ink = col("--ink");
+    ctx.strokeStyle = muted; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(A.X(0), A.Y(0)); ctx.lineTo(A.X(state.L), A.Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = surf; ctx.lineWidth = 2; ctx.beginPath();
+    for (let k = 0; k <= 300; k++) { const u = state.L * k / 300; const P = [A.X(u), A.Y(slopeAt(u))]; k ? ctx.lineTo(...P) : ctx.moveTo(...P); }
+    ctx.stroke();
+    ctx.fillStyle = ret; state.scan.forEach((s) => { ctx.beginPath(); ctx.arc(A.X(s.u), A.Y(s.th), 2.6, 0, 2 * Math.PI); ctx.fill(); });
+    state.cp.forEach((v, i) => { const x = A.X(state.L * i / (N - 1)), y = A.Y(v); ctx.beginPath(); ctx.arc(x, y, i === dragIdx ? 7 : 5.5, 0, 2 * Math.PI); ctx.fillStyle = col("--panel"); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = surf; ctx.stroke(); });
+    // ตำแหน่ง A และ B
+    [["A", state.pA, col("--pa")], ["B", state.pB, col("--pb")]].forEach(([nm, pp, cc]) => {
+      const xx = A.X(pp); ctx.strokeStyle = cc; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(xx, A.pad.t + 12); ctx.lineTo(xx, h - A.pad.b); ctx.stroke();
+      ctx.fillStyle = cc; ctx.beginPath(); ctx.arc(xx, A.Y(slopeAt(pp)), 4.5, 0, 2 * Math.PI); ctx.fill();
+      ctx.font = `600 12px ${col("--font-body")}`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(nm, xx, A.pad.t - 2);
+    });
+    // current prism position
+    const xp = A.X(state.p); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xp, A.pad.t); ctx.lineTo(xp, h - A.pad.b); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(xp, A.Y(slopeAt(state.p)), 3.5, 0, 2 * Math.PI); ctx.fill();
+  }
+  function drawHeight() {
+    const cv = $("heightChart"), { ctx, w, h } = setup(cv);
+    const hp = heightProfile(300);
+    let rec = null;
+    if (state.scan.length > 1) {
+      rec = [{ u: state.scan[0].u, h: 0 }];
+      const h0 = hp.hs[Math.round(state.scan[0].u / state.L * 300)];
+      rec[0].h = h0;
+      for (let i = 1; i < state.scan.length; i++) { const a = state.scan[i - 1], b = state.scan[i]; rec.push({ u: b.u, h: rec[i - 1].h + 0.5 * (a.th + b.th) * (b.u - a.u) }); }
+    }
+    const all = hp.hs.concat(rec ? rec.map((r) => r.h) : []);
+    let lo = Math.min(...all), hi = Math.max(...all); if (hi - lo < 2) { const m = (hi + lo) / 2; lo = m - 1; hi = m + 1; }
+    const padv = (hi - lo) * 0.12;
+    const A = axes(ctx, w, h, [0, state.L], [lo - padv, hi + padv], "ตำแหน่ง x (mm)", "ความสูง (nm)");
+    ctx.strokeStyle = col("--surface"); ctx.lineWidth = 2; ctx.beginPath();
+    hp.xs.forEach((u, k) => { const P = [A.X(u), A.Y(hp.hs[k])]; k ? ctx.lineTo(...P) : ctx.moveTo(...P); }); ctx.stroke();
+    if (rec) { ctx.fillStyle = col("--ret"); rec.forEach((r) => { ctx.beginPath(); ctx.arc(A.X(r.u), A.Y(r.h), 2.4, 0, 2 * Math.PI); ctx.fill(); }); }
+    // RMS
+    const n = 300; let s2 = 0; for (let k = 0; k <= n; k++) s2 += slopeAt(state.L * k / n) ** 2; const rmsTrue = Math.sqrt(s2 / (n + 1));
+    const pv = Math.max(...hp.hs) - Math.min(...hp.hs);
+    let txt = `RMS slope ของผิวจริง ${rmsTrue.toFixed(2)} µrad · ความสูง P-V ${pv.toFixed(1)} nm`;
+    if (state.scan.length) { const rmsM = Math.sqrt(state.scan.reduce((a, s) => a + s.th * s.th, 0) / state.scan.length); const err = Math.sqrt(state.scan.reduce((a, s) => a + (s.th - slopeAt(s.u)) ** 2, 0) / state.scan.length); txt += ` · วัดได้ RMS ${rmsM.toFixed(2)} µrad (ต่างจากจริง RMS ${err.toFixed(2)} µrad, ${state.scan.length} จุด)`; }
+    $("rmsNote").textContent = txt;
+  }
+
+  // Bessel J1 (Numerical Recipes)
+  function j1(x) {
+    const ax = Math.abs(x);
+    if (ax < 8) {
+      const y = x * x;
+      const a1 = x * (72362614232.0 + y * (-7895059235.0 + y * (242396853.1 + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
+      const a2 = 144725228442.0 + y * (2300535178.0 + y * (18583304.74 + y * (99447.43394 + y * (376.9991397 + y))));
+      return a1 / a2;
+    }
+    const z = 8 / ax, y = z * z, xx = ax - 2.356194491;
+    const b1 = 1 + y * (0.183105e-2 + y * (-0.3516396496e-4 + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
+    const b2 = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5 + y * (-0.88228987e-6 + y * 0.105787412e-6)));
+    const r = Math.sqrt(0.636619772 / ax) * (Math.cos(xx) * b1 - z * Math.sin(xx) * b2);
+    return x < 0 ? -r : r;
+  }
+  const airyI = (v) => (Math.abs(v) < 1e-9 ? 1 : (2 * j1(v) / v) ** 2);
+
+  function drawCmos(deltaUm) {
+    const cv = $("cmosChart"), { ctx, w, h } = setup(cv);
+    const lamUm = state.lam / 1000, airyR = 1.22 * lamUm * state.f / state.beam; // µm
+    const R = Math.max(2.6 * airyR, Math.abs(deltaUm) + 1.6 * airyR, 12 * state.pix);
+    const A = axes(ctx, w, h, [-R, R], [0, 1.1], "ตำแหน่งบนเซนเซอร์ (µm)", "ความเข้ม", 40);
+    const vOf = (x) => Math.PI * state.beam * x / (lamUm * state.f);
+    // pixels
+    const i0 = Math.floor(-R / state.pix), i1 = Math.ceil(R / state.pix);
+    let sw = 0, sx = 0;
+    ctx.fillStyle = col("--ret") + "40"; ctx.strokeStyle = col("--ret") + "70"; ctx.lineWidth = 0.5;
+    const showEdges = (i1 - i0) < 260;
+    for (let i = i0; i < i1; i++) {
+      const xa = i * state.pix, xb = xa + state.pix, xc = xa + state.pix / 2;
+      const I = (airyI(vOf(xa - deltaUm)) + 4 * airyI(vOf(xc - deltaUm)) + airyI(vOf(xb - deltaUm))) / 6;
+      sw += I; sx += I * xc;
+      const X1p = Math.max(A.X(xa), A.pad.l), X2p = Math.min(A.X(xb), w - A.pad.r);
+      if (X2p <= X1p) continue;
+      ctx.fillRect(X1p, A.Y(I), X2p - X1p, A.Y(0) - A.Y(I));
+      if (showEdges) ctx.strokeRect(X1p, A.Y(I), X2p - X1p, A.Y(0) - A.Y(I));
+    }
+    const centroid = sw > 0 ? sx / sw : 0;
+    // continuous Airy profile
+    ctx.strokeStyle = col("--ret"); ctx.lineWidth = 1.6; ctx.beginPath();
+    for (let k = 0; k <= 600; k++) { const x = -R + 2 * R * k / 600; const P = [A.X(x), A.Y(airyI(vOf(x - deltaUm)))]; k ? ctx.lineTo(...P) : ctx.moveTo(...P); }
+    ctx.stroke();
+    // reference (slope = 0) and spot centre
+    const muted = col("--muted"), ink = col("--ink");
+    ctx.setLineDash([4, 3]); ctx.strokeStyle = muted; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(A.X(0), A.pad.t); ctx.lineTo(A.X(0), A.Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = ink; ctx.beginPath(); ctx.moveTo(A.X(deltaUm), A.pad.t); ctx.lineTo(A.X(deltaUm), A.Y(0)); ctx.stroke();
+    ctx.font = `11px ${col("--font-body")}`; ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.textBaseline = "top"; ctx.fillText("อ้างอิง (slope = 0)", A.X(0) - 4, A.pad.t + 2);
+    ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.fillText(`Δ = ${fmt(deltaUm, 3)} µm`, A.X(deltaUm) + 4, A.pad.t + 16);
+    $("cmosNote").textContent = `จุดแสงมีขนาด Airy radius 1.22·λ·f/D = ${airyR.toFixed(1)} µm (${(airyR / state.pix).toFixed(1)} พิกเซล) ใหญ่กว่าระยะเลื่อน Δ มาก จึงต้องหาตำแหน่งด้วย centroid ของพิกเซล · centroid จากพิกเซล = ${fmt(centroid, 3)} µm`;
+    return { airyR, centroid };
+  }
+
+  // ---------- slope error (after removing best-fit tilt / curvature) ----------
+  function polyFit(xs, ys, order) { // order 1: constant, 2: line
+    const n = xs.length;
+    if (order === 1 || n < 3) { const m = ys.reduce((a, b) => a + b, 0) / n; return { a: m, b: 0 }; }
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; }
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx), a = (sy - b * sx) / n;
+    return { a, b };
+  }
+  function drawErr() {
+    const cv = $("errChart"), { ctx, w, h } = setup(cv);
+    const order = +$("fitMode").value;
+    const n = 300, xs = [], ys = [];
+    for (let k = 0; k <= n; k++) { const u = state.L * k / n; xs.push(u); ys.push(slopeAt(u)); }
+    const ft = polyFit(xs, ys, order);
+    const resT = ys.map((y, i) => y - (ft.a + ft.b * xs[i]));
+    let resM = null, fm = null;
+    if (state.scan.length > 1) {
+      const mx = state.scan.map((s) => s.u), my = state.scan.map((s) => s.th);
+      fm = polyFit(mx, my, order);
+      resM = state.scan.map((s, i) => ({ u: s.u, r: my[i] - (fm.a + fm.b * mx[i]), e: my[i] - slopeAt(s.u) }));
+    }
+    const all = resT.concat(resM ? resM.map((r) => r.r) : []);
+    const m = Math.max(0.5, ...all.map(Math.abs)) * 1.3;
+    const A = axes(ctx, w, h, [0, state.L], [-m, m], "ตำแหน่ง x (mm)", "slope error (µrad)");
+    const muted = col("--muted");
+    ctx.strokeStyle = muted; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(A.X(0), A.Y(0)); ctx.lineTo(A.X(state.L), A.Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    if (resM) { // measurement error bars
+      ctx.fillStyle = muted + "55";
+      const bw = Math.max(2, (A.X(state.step) - A.X(0)) * 0.5);
+      resM.forEach((r) => { const y0 = A.Y(0), y1 = A.Y(r.e); ctx.fillRect(A.X(r.u) - bw / 2, Math.min(y0, y1), bw, Math.abs(y1 - y0)); });
+    }
+    ctx.strokeStyle = col("--surface"); ctx.lineWidth = 2; ctx.beginPath();
+    xs.forEach((u, k) => { const P = [A.X(u), A.Y(resT[k])]; k ? ctx.lineTo(...P) : ctx.moveTo(...P); }); ctx.stroke();
+    if (resM) { ctx.fillStyle = col("--ret"); resM.forEach((r) => { ctx.beginPath(); ctx.arc(A.X(r.u), A.Y(r.r), 2.6, 0, 2 * Math.PI); ctx.fill(); }); }
+    const rms = (arr) => Math.sqrt(arr.reduce((a, v) => a + v * v, 0) / arr.length);
+    const radius = (b) => (Math.abs(b) < 1e-9 ? "∞" : (1e6 / b / 1e6).toFixed(1) + " km");
+    let txt = `ผิวจริง: RMS slope error ${rms(resT).toFixed(3)} µrad`;
+    if (order === 2) txt += ` · ความโค้งที่ fit ได้ R = ${radius(ft.b)}`;
+    if (resM) {
+      txt += ` · วัดได้: RMS ${rms(resM.map((r) => r.r)).toFixed(3)} µrad`;
+      if (order === 2) txt += `, R = ${radius(fm.b)}`;
+      txt += ` · ความคลาดของการวัด RMS ${rms(resM.map((r) => r.e)).toFixed(3)} µrad`;
+    } else txt += " · กดสแกนเพื่อดูค่าที่วัดได้";
+    $("errNote").textContent = txt;
+  }
+
+  // ---------- CMOS face (2D) + loupe for Δ ----------
+  let faceW = 200;
+  function drawFace(deltaUm, airyR) {
+    const cv = $("faceChart"), { ctx, w, h } = setup(cv);
+    const scanD = state.scan.map((s) => s.dUm);
+    if ($("autoZoom").checked) {
+      faceW = Math.min(3000, Math.max(5, 1.6 * airyR));
+      $("zoom").value = Math.log10(faceW).toFixed(2);
+    } else faceW = Math.pow(10, +$("zoom").value);
+    $("zoomOut").textContent = `±${faceW < 10 ? faceW.toFixed(1) : faceW.toFixed(0)} µm`;
+    const Hh = faceW * h / w;
+    const X = (um) => w / 2 + um / faceW * (w / 2), Y = (um) => h / 2 - um / Hh * (h / 2);
+    const lamUm = state.lam / 1000, k = Math.PI * state.beam / (lamUm * state.f);
+    // intensity image: one cell per sensor pixel when they are big enough on screen
+    const pxOnScreen = state.pix / faceW * (w / 2);
+    const cellUm = pxOnScreen >= 3 ? state.pix : (2 * faceW) / Math.min(240, Math.ceil(w / 2));
+    const i0 = Math.floor(-faceW / cellUm) - 1, i1 = Math.ceil(faceW / cellUm) + 1;
+    const j0 = Math.floor(-Hh / cellUm) - 1, j1 = Math.ceil(Hh / cellUm) + 1;
+    const bg = col("--sensor-bg"), spot = col("--sensor-spot"), sInk = col("--sensor-ink"), mark = col("--mark");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+    const cb = hex(bg), cs = hex(spot);
+    for (let i = i0; i < i1; i++) {
+      for (let j = j0; j < j1; j++) {
+        const xc = (i + 0.5) * cellUm, yc = (j + 0.5) * cellUm;
+        const I = Math.sqrt(airyI(k * Math.hypot(xc - deltaUm, yc)));
+        const wt = Math.max(0, I - 0.85) / 0.15;
+        const c = cb.map((v, q) => Math.round(v + (cs[q] - v) * I + (255 - cs[q]) * wt * 0.6));
+        ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        const xa = X(i * cellUm), xb = X((i + 1) * cellUm), ya = Y((j + 1) * cellUm), yb = Y(j * cellUm);
+        ctx.fillRect(xa, ya, xb - xa + 0.6, yb - ya + 0.6);
+      }
+    }
+    if (pxOnScreen >= 5) { // pixel grid
+      ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1; ctx.beginPath();
+      for (let i = i0; i <= i1; i++) { const x = X(i * state.pix); ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+      for (let j = j0; j <= j1; j++) { const y = Y(j * state.pix); ctx.moveTo(0, y); ctx.lineTo(w, y); }
+      ctx.stroke();
+    }
+    // reference crosshair (slope = 0) and centroid on the full view
+    ctx.strokeStyle = sInk; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), h); ctx.moveTo(0, Y(0)); ctx.lineTo(w, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = `11px ${col("--font-body")}`; ctx.fillStyle = sInk; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("อ้างอิง (slope = 0)", X(0) + 5, 6);
+    // scale bar
+    const bar = niceStep(faceW / 2.5), bx = 12, by = h - 12;
+    ctx.strokeStyle = sInk; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + bar / faceW * (w / 2), by); ctx.stroke();
+    ctx.textBaseline = "bottom"; ctx.fillText(`${fmtTick(bar)} µm`, bx, by - 4);
+
+    // loupe: แว่นขยายรอบจุดอ้างอิง ให้เห็นระยะเลื่อน Δ ของ centroid
+    const R = Math.min(w, h) * 0.3, lx = w - R - 10, ly = R + 10;
+    const maxD = Math.max(Math.abs(deltaUm), ...scanD.map(Math.abs), 1e-3);
+    const umPerPxL = maxD / (0.62 * R);              // µm per screen px inside the loupe
+    const M = (faceW / (w / 2)) / umPerPxL;          // magnification relative to the main view
+    const LX = (um) => lx + um / umPerPxL, LY = (um) => ly - um / umPerPxL;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(lx, ly, R, 0, 2 * Math.PI); ctx.closePath();
+    ctx.fillStyle = "rgba(4,9,11,0.88)"; ctx.fill(); ctx.clip();
+    if (state.pix / umPerPxL >= 6) { // pixel grid inside loupe
+      ctx.strokeStyle = "rgba(255,255,255,0.14)"; ctx.lineWidth = 1; ctx.beginPath();
+      const n = Math.ceil(R * umPerPxL / state.pix) + 1;
+      for (let i = -n; i <= n; i++) { ctx.moveTo(LX(i * state.pix), ly - R); ctx.lineTo(LX(i * state.pix), ly + R); ctx.moveTo(lx - R, LY(i * state.pix)); ctx.lineTo(lx + R, LY(i * state.pix)); }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = sInk; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(lx, ly - R); ctx.lineTo(lx, ly + R); ctx.moveTo(lx - R, ly); ctx.lineTo(lx + R, ly); ctx.stroke(); ctx.setLineDash([]);
+    scanD.forEach((d, i) => { const t = scanD.length > 1 ? i / (scanD.length - 1) : 0; ctx.fillStyle = `hsl(${200 - 160 * t} 85% 62%)`; ctx.beginPath(); ctx.arc(LX(d), ly + R * 0.42, 3, 0, 2 * Math.PI); ctx.fill(); });
+    const cx = LX(deltaUm);
+    if (Math.abs(cx - lx) > 3) {
+      ctx.strokeStyle = mark; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(lx, ly - R * 0.3); ctx.lineTo(cx, ly - R * 0.3); ctx.stroke();
+      arrowHead(ctx, V(lx, ly - R * 0.3), V(cx, ly - R * 0.3), mark, 8);
+    }
+    ctx.strokeStyle = mark; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx - 9, ly); ctx.lineTo(cx + 9, ly); ctx.moveTo(cx, ly - 9); ctx.lineTo(cx, ly + 9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, ly, 5, 0, 2 * Math.PI); ctx.stroke();
+    ctx.font = `600 12px ${col("--font-mono")}`; ctx.fillStyle = mark; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(`Δ = ${fmt(deltaUm, 3)} µm`, lx, ly - R * 0.3 - 6);
+    ctx.font = `11px ${col("--font-body")}`; ctx.fillStyle = sInk; ctx.textBaseline = "top";
+    ctx.fillText(`แว่นขยาย ×${M >= 100 ? Math.round(M).toLocaleString("en-US") : M.toFixed(1)}`, lx, ly + R * 0.55);
+    ctx.restore();
+    ctx.strokeStyle = mark; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(lx, ly, R, 0, 2 * Math.PI); ctx.stroke();
+    // leader from reference on main view to loupe
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = mark; ctx.lineWidth = 1;
+    const ang = Math.atan2(ly - Y(0), lx - X(0));
+    ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(lx - R * Math.cos(ang), ly - R * Math.sin(ang)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(X(0), Y(0), 6, 0, 2 * Math.PI); ctx.stroke();
+
+    $("faceNote").textContent = `จุดแสงบนเซนเซอร์ (Airy radius ${airyR.toFixed(0)} µm) ` +
+      (pxOnScreen >= 5 ? `แต่ละช่องคือ 1 พิกเซล (${state.pix} µm) ` : "") +
+      `· แว่นขยายมุมขวาแสดงตำแหน่ง centroid (กากบาทเหลือง) เทียบกับจุดอ้างอิง` + (scanD.length ? " · จุดสี = centroid จากการสแกน (ฟ้า→ส้ม = ต้น→ปลายกระจก)" : "");
+  }
+
+  // ---------- ระยะ d ระหว่างจุดของ 2 ตำแหน่งบนเซนเซอร์ ----------
+  function deltaAt(p) {
+    const r = trace(realGeom(p), 0, (u) => slopeAt(u) * 1e-6, state.tau * 1e-6);
+    return { d: r.cmosX * 1000, th: r.th * 1e6, u: r.u };
+  }
+  function drawD() {
+    const a = deltaAt(state.pA), b = deltaAt(state.pB);
+    const d = b.d - a.d;
+    const dThMeas = 0.5 * (Math.atan(b.d / 1000 / state.f) - Math.atan(a.d / 1000 / state.f)) * 1e6;
+    const cv = $("dChart"), { ctx, w, h } = setup(cv);
+    const R = Math.max(Math.abs(a.d), Math.abs(b.d), state.pix) * 1.3;
+    const padL = 16, padR = 16;
+    const X = (um) => padL + (um + R) / (2 * R) * (w - padL - padR);
+    const sy = h * 0.5, sh = Math.min(26, h * 0.22);
+    const bg = col("--sensor-bg"), sInk = col("--sensor-ink"), ink = col("--ink"), muted = col("--muted"), pa = col("--pa"), pb = col("--pb");
+    // sensor strip
+    ctx.fillStyle = bg; ctx.fillRect(padL, sy - sh / 2, w - padL - padR, sh);
+    const pxW = state.pix / (2 * R) * (w - padL - padR);
+    if (pxW >= 4) {
+      ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1; ctx.beginPath();
+      for (let i = Math.ceil(-R / state.pix); i * state.pix <= R; i++) { const x = X(i * state.pix); ctx.moveTo(x, sy - sh / 2); ctx.lineTo(x, sy + sh / 2); }
+      ctx.stroke();
+    }
+    // reference
+    ctx.strokeStyle = muted; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(X(0), sy - sh / 2 - 6); ctx.lineTo(X(0), h - 22); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = `11px ${col("--font-body")}`; ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("อ้างอิง (slope = 0)", X(0), h - 20);
+    // spots
+    [[a, pa, "A"], [b, pb, "B"]].forEach(([q, cc, nm]) => {
+      ctx.fillStyle = cc; ctx.beginPath(); ctx.arc(X(q.d), sy, Math.min(9, sh * 0.38), 0, 2 * Math.PI); ctx.fill();
+      ctx.strokeStyle = sInk; ctx.lineWidth = 1; ctx.stroke();
+      ctx.font = `600 12px ${col("--font-body")}`; ctx.fillStyle = cc; ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillText(nm, X(q.d), sy + sh / 2 + 4);
+    });
+    // d bracket above the strip
+    const yb = sy - sh / 2 - 14;
+    ctx.strokeStyle = ink; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(a.d), sy - sh / 2 - 2); ctx.lineTo(X(a.d), yb - 6); ctx.moveTo(X(b.d), sy - sh / 2 - 2); ctx.lineTo(X(b.d), yb - 6); ctx.stroke();
+    if (Math.abs(X(b.d) - X(a.d)) > 6) {
+      ctx.beginPath(); ctx.moveTo(X(a.d), yb); ctx.lineTo(X(b.d), yb); ctx.stroke();
+      arrowHead(ctx, V((X(a.d) + X(b.d)) / 2, yb), V(X(b.d), yb), ink, 8);
+      arrowHead(ctx, V((X(a.d) + X(b.d)) / 2, yb), V(X(a.d), yb), ink, 8);
+    }
+    ctx.font = `600 13px ${col("--font-mono")}`; ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(`d = ${fmt(d, 3)} µm  (${fmt(d / state.pix, 2)} พิกเซล)`, (X(a.d) + X(b.d)) / 2, yb - 4);
+    // scale bar
+    const bar = niceStep(R / 2), bx = padL + 4, by = h - 6;
+    ctx.strokeStyle = muted; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + bar / (2 * R) * (w - padL - padR), by); ctx.stroke();
+    ctx.font = `11px ${col("--font-mono")}`; ctx.fillStyle = muted; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText(`${fmtTick(bar)} µm`, bx, by - 3);
+
+    $("dA").innerHTML = `${fmt(a.d, 3)}<small>µm</small>`;
+    $("dAX").textContent = `x = ${state.pA.toFixed(1)} mm · θ = ${fmt(a.th, 3)} µrad`;
+    $("dB").innerHTML = `${fmt(b.d, 3)}<small>µm</small>`;
+    $("dBX").textContent = `x = ${state.pB.toFixed(1)} mm · θ = ${fmt(b.th, 3)} µrad`;
+    $("dD").innerHTML = `${fmt(d, 3)}<small>µm</small>`;
+    $("dDX").textContent = `= ${fmt(d / state.pix, 2)} พิกเซล · ห่างกันบนกระจก ${Math.abs(state.pB - state.pA).toFixed(1)} mm`;
+    $("dTh").innerHTML = `${fmt(dThMeas, 3)}<small>µrad</small>`;
+    $("dThX").textContent = `θB − θA จริง = ${fmt(b.th - a.th, 3)} µrad`;
+    $("dFormula").textContent = `d = ΔB − ΔA = f·[tan(2θB) − tan(2θA)] ≈ 2f·(θB − θA)  →  θB − θA ≈ d / 2f = ${fmt(d, 3)} µm / (2 × ${state.f} mm) = ${fmt(d / (2 * state.f), 3)} µrad`;
+  }
+
+  // ---------- compute + render ----------
+  function compute() {
+    const g = realGeom();
+    const slopeRad = (u) => slopeAt(u) * 1e-6;
+    const r = trace(g, 0, slopeRad, state.tau * 1e-6);
+    const deltaUm = r.cmosX * 1000;
+    const thBack = 0.5 * Math.atan(r.cmosX / state.f) * 1e6;
+    // prism-tilt effect: same surface slope, prism tilted vs level
+    const fixed = () => r.th;
+    const rLevel = trace(g, 0, fixed, 0), rTilt = trace(g, 0, fixed, state.tau * 1e-6);
+    const tiltEffect = (rTilt.cmosX - rLevel.cmosX) * 1000;
+    const hitShift = (rTilt.hit.x - rLevel.hit.x) * 1000;
+    return { r, deltaUm, thBack, tiltEffect, hitShift, g };
+  }
+
+  function render() {
+    const c = compute();
+    if (state.autoK) {
+      const m = Math.max(0.2, ...state.cp.map(Math.abs));
+      state.K = Math.min(1e5, 0.6 * Math.PI / 180 / (m * 1e-6));
+      $("K").value = Math.log10(state.K).toFixed(2);
+    }
+    $("KOut").textContent = `×${Math.round(state.K).toLocaleString("en-US")}`;
+    drawSchematic(c);
+    drawSlope();
+    drawHeight();
+    const cm = drawCmos(c.deltaUm);
+    drawErr();
+    drawFace(c.deltaUm, cm.airyR);
+    drawD();
+
+    const th = c.r.th * 1e6;
+    $("sTheta").innerHTML = `${fmt(th, 3)}<small>µrad</small>`;
+    $("sThetaX").textContent = `ที่ x = ${c.r.u.toFixed(2)} mm · 2θ = ${fmt(2 * th, 3)} µrad`;
+    $("sDelta").innerHTML = `${fmt(c.deltaUm, 3)}<small>µm</small>`;
+    $("sDeltaX").textContent = `= ${fmt(c.deltaUm / state.pix, 3)} พิกเซล · ความไว 2f = ${(2 * state.f / 1000).toFixed(2)} µm/µrad`;
+    $("sBack").innerHTML = `${fmt(c.thBack, 3)}<small>µrad</small>`;
+    $("sBackX").textContent = `ต่างจากค่าจริง ${(Math.abs(c.thBack - th) * 1000).toFixed(4)} nrad`;
+    $("sTilt").innerHTML = `${fmt(c.tiltEffect, 4)}<small>µm</small>`;
+    $("sTiltX").textContent = `ปริซึมเอียง ${fmt(state.tau / 1000, 2)} mrad · จุดตกบนกระจกขยับ ${fmt(c.hitShift, 1)} µm`;
+
+    $("formula").textContent = `Δ = f·tan(2θ) = ${state.f} mm × tan(2 × ${fmt(th, 3)} µrad) = ${fmt(state.f * Math.tan(2 * th * 1e-6) * 1000, 3)} µm   ·   θ = ½·atan(Δ/f)   ·   ray trace ได้ ${fmt(c.deltaUm, 3)} µm`;
+
+    // status chips
+    const chips = [];
+    const sensorHalf = state.sensor * 500;
+    if (Math.abs(c.deltaUm) > sensorHalf) chips.push(["warn", `จุดตกนอกเซนเซอร์ (|Δ| > ${sensorHalf.toFixed(0)} µm)`]);
+    if (c.r.bsOff > 12.5) chips.push(["warn", `แสงขากลับหลุดขอบ BS (ห่างกลาง ${c.r.bsOff.toFixed(1)} mm)`]);
+    if (Math.abs(c.r.lensH) > 12.5) chips.push(["warn", `แสงขากลับหลุดขอบเลนส์ (${c.r.lensH.toFixed(1)} mm)`]);
+    if (lastDrawClamp.theta) chips.push(["warn", "มุม θ ในภาพถูกจำกัดไว้ที่ 0.75° ลด K เพื่อให้ภาพตรงสัดส่วน"]);
+    if (lastDrawClamp.tau) chips.push(["warn", "มุมเอียงปริซึมในภาพถูกจำกัดไว้ที่ 6°"]);
+    if (Math.abs(c.tiltEffect) < 1e-6 && state.tau !== 0) chips.push(["ok", "ปริซึมเอียงแต่ Δ ไม่เปลี่ยน: pentaprism หักแสง 90° คงที่"]);
+    if (!chips.length) chips.push(["ok", "แสงขากลับเข้า BS เลนส์ และเซนเซอร์ครบ"]);
+    $("chips").innerHTML = chips.map(([k, t]) => `<span class="chip ${k === "ok" ? "ok" : ""}">${t}</span>`).join("");
+  }
+
+  // ---------- controls ----------
+  const units = {
+    p: (v) => `${(+v).toFixed(1)} mm`, tau: (v) => `${(v / 1000).toFixed(2)} mrad`, step: (v) => `${v} mm`, f: (v) => `${v} mm`, d: (v) => `${v} mm`,
+    D0: (v) => `${v} mm`, beam: (v) => `${(+v).toFixed(1)} mm`, lam: (v) => `${v} nm`, pix: (v) => `${(+v).toFixed(1)} µm`, sensor: (v) => `${(+v).toFixed(1)} mm`,
+    sigma: (v) => `${(+v).toFixed(2)} µm`, L: (v) => `${v} mm`, pA: (v) => `${(+v).toFixed(1)} mm`, pB: (v) => `${(+v).toFixed(1)} mm`,
+  };
+  Object.keys(units).forEach((k) => {
+    const el = $(k);
+    const sync = () => { state[k] = +el.value; $(k + "Out").textContent = units[k](el.value); };
+    el.addEventListener("input", () => {
+      sync();
+      if (k === "L") { ["pA", "pB"].forEach((q) => { $(q).max = state.L; if (state[q] > state.L) { state[q] = state.L; $(q).value = state.L; $(q + "Out").textContent = units[q](state.L); } }); $("p").max = state.L; if (state.p > state.L) { state.p = state.L; $("p").value = state.L; $("pOut").textContent = units.p(state.L); } state.scan = []; }
+      if (["f", "D0", "tau", "sigma"].includes(k)) state.scan = [];
+      render();
+    });
+    sync();
+  });
+  $("K").addEventListener("input", () => { state.autoK = false; $("autoK").checked = false; state.K = Math.pow(10, +$("K").value); render(); });
+  $("autoK").addEventListener("change", () => { state.autoK = $("autoK").checked; if (!state.autoK) state.K = Math.pow(10, +$("K").value); render(); });
+  $("edges").addEventListener("change", () => { state.edges = $("edges").checked; render(); });
+  $("fitMode").addEventListener("change", render);
+  $("zoom").addEventListener("input", () => { $("autoZoom").checked = false; render(); });
+  $("autoZoom").addEventListener("change", render);
+
+  // control-point inputs
+  const cpsBox = $("cps");
+  function buildCps() {
+    cpsBox.innerHTML = "";
+    state.cp.forEach((v, i) => {
+      const lab = document.createElement("label");
+      const x = state.L * i / (N - 1);
+      lab.innerHTML = `<span>${x.toFixed(0)}</span>`;
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.step = "0.1"; inp.id = `cp${i}`; inp.value = v.toFixed(1); inp.setAttribute("aria-label", `slope ที่ x = ${x.toFixed(0)} mm (µrad)`);
+      inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (Number.isFinite(n)) { state.cp[i] = n; state.scan = []; render(); } });
+      lab.appendChild(inp); cpsBox.appendChild(lab);
+    });
+  }
+  function syncCps() { state.cp.forEach((v, i) => { const el = $(`cp${i}`); if (el && document.activeElement !== el) el.value = v.toFixed(1); }); }
+  $("L").addEventListener("input", buildCps);
+  document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => { state.cp = PRESETS[b.dataset.preset](); state.scan = []; syncCps(); render(); }));
+
+  // drag control points on slope chart
+  const sc = $("slopeChart");
+  const evPos = (e) => { const r = sc.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  sc.addEventListener("pointerdown", (e) => {
+    if (!slopeMap) return;
+    const q = evPos(e); let best = -1, bd = 16;
+    state.cp.forEach((v, i) => { const dx = slopeMap.X(state.L * i / (N - 1)) - q.x, dy = slopeMap.Y(v) - q.y; const dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; best = i; } });
+    if (best >= 0) { dragIdx = best; sc.setPointerCapture(e.pointerId); e.preventDefault(); }
+    else { // click elsewhere moves the prism
+      const u = (q.x - slopeMap.pad.l) / (sc.clientWidth - slopeMap.pad.l - slopeMap.pad.r) * state.L;
+      if (u >= 0 && u <= state.L) { state.p = Math.round(u * 2) / 2; $("p").value = state.p; $("pOut").textContent = units.p(state.p); render(); }
+    }
+  });
+  sc.addEventListener("pointermove", (e) => {
+    if (dragIdx < 0) return;
+    const q = evPos(e);
+    const y0 = slopeMap.Y(0), y1 = slopeMap.Y(slopeRange);
+    let v = (y0 - q.y) / (y0 - y1) * slopeRange; v = Math.max(-slopeRange, Math.min(slopeRange, v));
+    state.cp[dragIdx] = round1(v); state.scan = []; syncCps(); render();
+  });
+  const endDrag = () => { if (dragIdx >= 0) { dragIdx = -1; render(); } };
+  sc.addEventListener("pointerup", endDrag); sc.addEventListener("pointercancel", endDrag);
+
+  // scan
+  function gauss() { let u = 0, v = 0; while (u === 0) u = Math.random(); while (v === 0) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function measureAt(p) {
+    state.p = p; const c = compute();
+    const dMeas = c.r.cmosX + state.sigma * 1e-3 * gauss();
+    return { u: c.r.u, th: 0.5 * Math.atan(dMeas / state.f) * 1e6, dUm: dMeas * 1000 };
+  }
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("scanBtn").addEventListener("click", () => {
+    if (state.scanning) { state.scanning = false; $("scanBtn").textContent = "สแกนทั้งกระจก"; return; }
+    state.scan = []; state.scanning = true; $("scanBtn").textContent = "หยุดสแกน";
+    let p = 0; const keepP = state.p;
+    if (reduce) {
+      for (; p <= state.L + 1e-9; p += state.step) state.scan.push(measureAt(p));
+      state.p = keepP; state.scanning = false; $("scanBtn").textContent = "สแกนทั้งกระจก"; render(); return;
+    }
+    const tick = () => {
+      if (!state.scanning) { render(); return; }
+      state.scan.push(measureAt(p));
+      $("p").value = state.p; $("pOut").textContent = units.p(state.p);
+      render();
+      p += state.step;
+      if (p > state.L + 1e-9) { state.scanning = false; $("scanBtn").textContent = "สแกนทั้งกระจก"; render(); return; }
+      setTimeout(tick, 35);
+    };
+    tick();
+  });
+  $("clearBtn").addEventListener("click", () => { state.scan = []; render(); });
+
+  // theme: เริ่มที่โทนสว่าง มีปุ่มสลับ และจำค่าที่เลือกไว้ในเบราว์เซอร์นี้
+  const root = document.documentElement;
+  let theme = "light";
+  try { const t = localStorage.getItem("sss-theme"); if (t === "light" || t === "dark") theme = t; } catch (e) { /* ignore */ }
+  function applyTheme() {
+    root.setAttribute("data-theme", theme);
+    $("themeBtn").textContent = theme === "light" ? "โทนมืด" : "โทนสว่าง";
+  }
+  $("themeBtn").addEventListener("click", () => {
+    theme = theme === "light" ? "dark" : "light";
+    try { localStorage.setItem("sss-theme", theme); } catch (e) { /* ignore */ }
+    applyTheme(); render();
+  });
+  applyTheme();
+
+  // theme + resize
+  const rerender = () => requestAnimationFrame(render);
+  window.addEventListener("resize", rerender);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender);
+  new MutationObserver(() => { if (root.getAttribute("data-theme") !== theme) applyTheme(); rerender(); })
+    .observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(rerender);
+
+  buildCps();
+  render();
+})();
+</script>
+
+</body>
+</html>
