@@ -1098,10 +1098,26 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   }
   window.slopeSim = { schematicSVG };
   const svgMsg = (t) => { $("svgMsg").textContent = t; setTimeout(() => { if ($("svgMsg").textContent === t) $("svgMsg").textContent = ""; }, 4000); };
+  // ดาวน์โหลด: ใน claude.ai ใช้ downloads capability ส่วนที่อื่น (GitHub Pages, ไฟล์ในเครื่อง) ใช้ลิงก์ดาวน์โหลดปกติ
+  let downloadsNS = null;
+  const framed = window.top !== window;
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("downloads").then((ns) => { downloadsNS = ns; if (!ns && framed) $("svgDl").hidden = true; }).catch(() => {});
+  }
   $("svgDl").addEventListener("click", () => {
-    const blob = new Blob([schematicSVG()], { type: "image/svg+xml" });
+    const filename = `slope-scan-diagram_x${state.p.toFixed(0)}mm.svg`, data = schematicSVG();
+    if (downloadsNS) {
+      downloadsNS.save({ filename, data }).then(() => svgMsg("บันทึกไฟล์ SVG แล้ว"), (e) => {
+        const code = e && e.code;
+        if (code === "declined") svgMsg("ยกเลิกการบันทึก");
+        else if (code === "rate_limited") svgMsg("มีหน้าต่างบันทึกเปิดอยู่ ลองใหม่อีกครั้ง");
+        else svgMsg("บันทึกไฟล์ในหน้านี้ไม่ได้ ใช้ปุ่มคัดลอกโค้ด SVG แทน");
+      });
+      return;
+    }
+    const blob = new Blob([data], { type: "image/svg+xml" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = `slope-scan-diagram_x${state.p.toFixed(0)}mm.svg`;
+    a.href = URL.createObjectURL(blob); a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     svgMsg("สร้างไฟล์ SVG แล้ว");
