@@ -172,7 +172,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
       <h1>จำลองการวัด slope แบบมี beam steering (M1, M2)</h1>
       <button id="themeBtn" type="button" aria-label="สลับโทนสว่าง/มืด">โทนมืด</button>
     </div>
-    <p><a href="https://saetiew.github.io/slope-scan-simulator/">← แบบไม่มี beam steering</a> · เลเซอร์ผ่านกระจก steering 2 ตัว (หักแสง 90° สองครั้ง) ก่อนเข้า beam splitter ปรับมุมเอียงกระจกแต่ละตัวได้ที่แผง "Beam steering"<br>ปรับโปรไฟล์ slope ของกระจก ตำแหน่งและมุมเอียงของ pentaprism ค่า f และระยะในระบบ แล้วดูเส้นแสงกับจุดบน CMOS เปลี่ยนตาม กดสแกนเพื่อวัดตลอดความยาวกระจก</p>
+    <p><a href="https://saetiew.github.io/slope-scan-simulator/">← แบบไม่มี beam steering</a> · เลเซอร์ผ่านกระจก steering 2 ตัว (หักแสง 90° สองครั้ง ทางเดินแสงรูปตัว U) ก่อนเข้า beam splitter ปรับมุมเอียงกระจกแต่ละตัวได้ที่แผง "Beam steering"<br>ปรับโปรไฟล์ slope ของกระจก ตำแหน่งและมุมเอียงของ pentaprism ค่า f และระยะในระบบ แล้วดูเส้นแสงกับจุดบน CMOS เปลี่ยนตาม กดสแกนเพื่อวัดตลอดความยาวกระจก</p>
   </header>
 
   <div class="layout">
@@ -385,10 +385,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const bsA = V(g.bsX - 1, 1), bsB = V(g.bsX + 1, -1);
     let p, d = V(1, 0), steerDir = null;
     const out = [];
-    if (g.m1) { // เลเซอร์ → M1 (หัก 90° ขึ้น) → M2 (หัก 90° ไปทาง BS) กระจกวาง 45° + มุมเอียง
-      p = V(g.laserX, g.m1.y + yOff); out.push(p);
-      for (const [m, a] of [[g.m1, g.a1], [g.m2, g.a2]]) {
-        const u = V(Math.cos(Math.PI / 4 + a), Math.sin(Math.PI / 4 + a));
+    if (g.m1) { // ทางเดินแสงรูปตัว U: เลเซอร์ยิงไปทางซ้าย → M1 (หัก 90° ขึ้น) → M2 (หัก 90° ไปทาง BS)
+      p = V(g.laserX, g.m1.y - yOff); d = V(-1, 0); out.push(p);
+      for (const [m, a, base] of [[g.m1, g.a1, -Math.PI / 4], [g.m2, g.a2, Math.PI / 4]]) {
+        const u = V(Math.cos(base + a), Math.sin(base + a));
         const A = sub(m, u), B = add(m, u);
         p = hitLine(p, d, A, B); d = reflect(d, A, B); out.push(p);
       }
@@ -421,7 +421,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   const STEER = { l12: 50, l2: 60 }; // ระยะ M1→M2 และ M2→BS (mm)
   function realGeom(p = state.p) {
     const s = 25;
-    return { laserX: -160, bsX: 0, lensY: state.d, f: state.f, cmosY: state.d + state.f, s, H: 60,
+    return { laserX: 40, bsX: 0, lensY: state.d, f: state.f, cmosY: state.d + state.f, s, H: 60,
       m1: V(-STEER.l2, -STEER.l12), m2: V(-STEER.l2, 0), a1: state.m1 * 1e-6, a2: state.m2 * 1e-6,
       prismX: state.D0 + p - s / 2, uOf: (x) => x - state.D0 };
   }
@@ -434,8 +434,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const mMax = Math.max(Math.abs(state.m1), Math.abs(state.m2), 1e-9);
     steerK = Math.min(state.K, 0.5 * Math.PI / 180 / (mMax * 1e-6));
     const a1 = state.m1 * 1e-6 * steerK, a2 = state.m2 * 1e-6 * steerK, clampA = (a) => a;
-    return { laserX: -8, bsX: 26, bsHalf: 8, lensY, f, cmosY: lensY + f, s, H: 40, D0, Ls,
-      m1: V(5, -9), m2: V(5, 0), a1: clampA(a1), a2: clampA(a2),
+    return { laserX: 11, bsX: 26, bsHalf: 8, lensY, f, cmosY: lensY + f, s, H: 40, D0, Ls,
+      m1: V(4, -12), m2: V(4, 0), a1: clampA(a1), a2: clampA(a2),
       prismX: D0 + (state.p / state.L) * Ls - s / 2, uOf: (x) => (x - D0) / Ls * state.L };
   }
 
@@ -488,10 +488,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const path = (pts, color, lw, dash) => { ctx.beginPath(); pts.forEach((q, i) => { const P = T(q); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); }); ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]); };
 
     // housing
-    rect(-9.5, -14, g.bsX + 31.5, g.cmosY + 22, panel, line);
+    rect(-6, -18, g.bsX + 31, g.cmosY + 26, panel, line);
     ctx.font = `600 ${fontS * 1.05}px ${col("--font-display")}`; text("Autocollimator", V(-4, g.cmosY + 5), "left", ink); ctx.font = `${fontS}px ${col("--font-body")}`;
     // laser
-    rect(-8.5, -12, 8.5, 6, laser + "33", laser); text("Laser", V(-4.25, -9), "center", ink);
+    rect(11, -15, 10, 6, laser + "33", laser); text("Laser", V(16, -12), "center", ink);
     // BS
     rect(g.bsX - g.bsHalf, -g.bsHalf, 2 * g.bsHalf, 2 * g.bsHalf, glass, gEdge);
     path([V(g.bsX - g.bsHalf, g.bsHalf), V(g.bsX + g.bsHalf, -g.bsHalf)], gEdge, 1.2);
@@ -514,13 +514,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     dim(g.bsX - 12, g.lensY, g.cmosY, `f = ${state.f} mm`);
 
     // กระจก beam steering M1, M2
-    [[g.m1, g.a1, "M1", state.m1], [g.m2, g.a2, "M2", state.m2]].forEach(([m, a, nm, val]) => {
-      const u = V(Math.cos(Math.PI / 4 + a), Math.sin(Math.PI / 4 + a));
-      const nrmv = V(u.y, -u.x); // ด้านหลังกระจก
+    [[g.m1, g.a1, "M1", -Math.PI / 4], [g.m2, g.a2, "M2", Math.PI / 4]].forEach(([m, a, nm, base]) => {
+      const u = V(Math.cos(base + a), Math.sin(base + a));
+      const nrmv = nm === "M1" ? V(u.y, -u.x) : V(-u.y, u.x); // ด้านหลังกระจก (ตรงข้ามด้านที่แสงสะท้อน)
       poly([add(sub(m, mul(u, 3.4)), mul(nrmv, 0)), add(add(m, mul(u, 3.4)), mul(nrmv, 0)), add(add(m, mul(u, 3.4)), mul(nrmv, 1.4)), add(sub(m, mul(u, 3.4)), mul(nrmv, 1.4))], sample, gEdge);
       path([sub(m, mul(u, 3.4)), add(m, mul(u, 3.4))], ink, 2.2);
       ctx.font = `600 ${fontS}px ${col("--font-body")}`;
-      text(nm, add(m, V(nm === "M1" ? 3.4 : -3.2, nm === "M1" ? -3.6 : 3.6)), nm === "M1" ? "left" : "right", ink);
+      text(nm, add(m, V(-3.4, nm === "M1" ? -3.4 : 3.4)), "right", ink);
       ctx.font = `${fontS}px ${col("--font-body")}`;
     });
 
