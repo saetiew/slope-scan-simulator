@@ -223,7 +223,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
               <option value="2" selected>ลบเส้นตรง (ความโค้ง R)</option>
             </select>
           </div>
-          <p class="sub">slope ที่เหลือหลังลบรูปทรงที่ fit ได้ · เส้นทึบคือผิวจริง จุดคือค่าที่วัดได้ แท่งเทาคือความคลาดของการวัด</p>
+          <p class="sub">slope ที่เหลือหลังลบรูปทรงที่ fit ได้ · เส้นทึบคือผิวจริง จุดคือค่าที่วัดได้ แท่งเทาคือความคลาดของการวัดแต่ละจุด (ที่วัดได้ − ผิวจริง)</p>
           <canvas id="errChart" class="chart" aria-label="กราฟ slope error"></canvas>
           <p class="note" id="errNote">–</p>
         </section>
@@ -755,7 +755,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     if (state.scan.length > 1) {
       const mx = state.scan.map((s) => s.u), my = state.scan.map((s) => s.th);
       fm = polyFit(mx, my, order);
-      resM = state.scan.map((s, i) => ({ u: s.u, r: my[i] - (fm.a + fm.b * mx[i]), e: my[i] - slopeAt(s.u) }));
+      // e = ความคลาดของการวัดแต่ละจุด: residual ที่วัดได้ − residual ของผิวจริงที่ตำแหน่งเดียวกัน (หลังลบรูปทรงที่ fit แล้วทั้งคู่)
+      resM = state.scan.map((s, i) => { const r = my[i] - (fm.a + fm.b * mx[i]); return { u: s.u, r, e: r - (slopeAt(s.u) - (ft.a + ft.b * s.u)) }; });
     }
     const all = resT.concat(resM ? resM.map((r) => r.r) : []);
     const m = Math.max(0.5, ...all.map(Math.abs)) * 1.3;
