@@ -161,18 +161,20 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .cps input { padding: 3px 2px; text-align: center; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; }
 .note { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.sub-grid { display: grid; gap: inherit; }
+.sub-grid[hidden] { display: none; }
 .formula { font-family: var(--font-mono); font-size: 0.85rem; background: var(--bg); border-radius: 8px; padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
 </style>
-
 </head>
 <body>
+
 <div class="wrap">
   <header>
     <div class="head-row">
       <h1>จำลองการวัด slope ด้วย autocollimator + pentaprism สแกน</h1>
       <button id="themeBtn" type="button" aria-label="สลับโทนสว่าง/มืด">โทนมืด</button>
     </div>
-    <p><a href="https://saetiew.github.io/slope-scan-simulator/steering.html">แบบมี beam steering (M1, M2) →</a><br>ปรับโปรไฟล์ slope ของกระจก ตำแหน่งและมุมเอียงของ pentaprism ค่า f และระยะในระบบ แล้วดูเส้นแสงกับจุดบน CMOS เปลี่ยนตาม กดสแกนเพื่อวัดตลอดความยาวกระจก</p>
+    <p>ปรับโปรไฟล์ slope ของกระจก ตำแหน่งและมุมเอียงของ pentaprism ค่า f และระยะในระบบ แล้วดูเส้นแสงกับจุดบน CMOS เปลี่ยนตาม กดสแกนเพื่อวัดตลอดความยาวกระจก · ติ๊ก "มี beam steering" ที่แผงปรับค่าเพื่อเพิ่มกระจก M1, M2 (หักแสง 90° สองครั้ง ทางเดินแสงรูปตัว U) ก่อนเข้า beam splitter</p>
   </header>
 
   <div class="layout">
@@ -268,6 +270,17 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
       </fieldset>
 
       <fieldset>
+        <legend>Beam steering</legend>
+        <label class="check"><input id="steer" type="checkbox"> มี beam steering (กระจก M1, M2 ก่อนเข้า BS)</label>
+        <div class="sub-grid" id="steerBox" hidden>
+          <div class="row"><label for="m1">มุมเอียงกระจก M1 <output id="m1Out"></output></label><input id="m1" type="range" min="-2000" max="2000" step="5" value="0"></div>
+          <div class="row"><label for="m2">มุมเอียงกระจก M2 <output id="m2Out"></output></label><input id="m2" type="range" min="-2000" max="2000" step="5" value="0"></div>
+          <div class="btns"><button id="steerReset" type="button">ตั้งกระจกตรง (0, 0)</button></div>
+          <p class="note" id="steerNote">–</p>
+        </div>
+      </fieldset>
+
+      <fieldset>
         <legend>ระยะ d: 2 ตำแหน่ง</legend>
         <div class="row"><label for="pA">ตำแหน่ง A <output id="pAOut"></output></label><input id="pA" type="range" min="0" max="300" step="0.5" value="75"></div>
         <div class="row"><label for="pB">ตำแหน่ง B <output id="pBOut"></output></label><input id="pB" type="range" min="0" max="300" step="0.5" value="187.5"></div>
@@ -302,8 +315,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
         <legend>การแสดงผล</legend>
         <label class="check"><input id="autoK" type="checkbox" checked> ขยายมุมอัตโนมัติ</label>
         <div class="row"><label for="K">ตัวขยายมุมในภาพ K <output id="KOut"></output></label><input id="K" type="range" min="0" max="5" step="0.01" value="3.3"></div>
+        <label class="check"><input id="real" type="checkbox" checked> ลำแสงเหมือนจริง (สีตามความยาวคลื่น)</label>
         <label class="check"><input id="edges" type="checkbox" checked> แสดงขอบลำแสง</label>
-        <p class="note">แบบจำลอง 2 มิติในระนาบแสง คิดการสะท้อนที่ผิวปริซึม ไม่คิดการหักเห เลนส์เป็นเลนส์บาง</p>
+        <p class="note">แบบจำลอง 2 มิติในระนาบแสง คิดการสะท้อนที่ผิวปริซึม ไม่คิดการหักเห เลนส์เป็นเลนส์บาง · ลำแสงเหมือนจริง: ความเข้มแบบ Gaussian (ขอบ 1/e² = ขนาดลำแสง) และแสงที่ BS 50/50 แยกออกไป</p>
       </fieldset>
     </aside>
     <button id="ctlToggle" type="button" aria-controls="controls" aria-expanded="false">ปรับค่า</button>
@@ -327,8 +341,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
   const state = {
     cp: PRESETS.example(), L: 300, p: 112, tau: 0, step: 5, f: 500, d: 80, D0: 300, beam: 3,
-    lam: 635, pix: 5.5, sensor: 6.6, sigma: 0.3, autoK: true, K: 2000, edges: true,
-    scan: [], scanning: false, pA: 75, pB: 187.5,
+    lam: 635, pix: 5.5, sensor: 6.6, sigma: 0.3, autoK: true, K: 2000, edges: true, real: true,
+    scan: [], scanning: false, pA: 75, pB: 187.5, m1: 0, m2: 0, steer: false,
   };
 
   // ---------- slope profile (µrad) ----------
@@ -375,8 +389,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   function trace(g, yOff, slopeRadAt, tau) {
     const v = pentaprism(g.prismX, -g.s / 2, g.s, tau);
     const bsA = V(g.bsX - 1, 1), bsB = V(g.bsX + 1, -1);
-    let p = V(g.laserX, yOff), d = V(1, 0);
-    const out = [p];
+    let p, d = V(1, 0), steerDir = null;
+    const out = [];
+    if (g.m1) { // ทางเดินแสงรูปตัว U: เลเซอร์ยิงไปทางซ้าย → M1 (หัก 90° ขึ้น) → M2 (หัก 90° ไปทาง BS)
+      p = V(g.laserX, g.m1.y - yOff); d = V(-1, 0); out.push(p);
+      for (const [m, a, base] of [[g.m1, g.a1, -Math.PI / 4], [g.m2, g.a2, Math.PI / 4]]) {
+        const u = V(Math.cos(base + a), Math.sin(base + a));
+        const A = sub(m, u), B = add(m, u);
+        p = hitLine(p, d, A, B); d = reflect(d, A, B); out.push(p);
+      }
+      steerDir = d;
+    } else { p = V(g.laserX, yOff); out.push(p); }
+    const bsIn = hitLine(p, d, bsA, bsB); // จุดที่ลำแสงขาไปผ่าน BS
     p = hitLine(p, d, v[4], v[0]); out.push(p);
     p = hitLine(p, d, v[1], v[2]); d = reflect(d, v[1], v[2]); out.push(p);
     p = hitLine(p, d, v[3], v[4]); d = reflect(d, v[3], v[4]); out.push(p);
@@ -398,20 +422,30 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const slope2 = d.x / d.y - lensH / g.f;
     d = V(slope2, 1);
     p = hitLine(p, d, V(0, g.cmosY), V(1, g.cmosY)); ret.push(p);
-    return { v, out, ret, hit, u, th, downDir, upDir, cmosX: p.x - g.bsX, bsOff, lensH };
+    return { v, out, ret, hit, u, th, downDir, upDir, cmosX: p.x - g.bsX, bsOff, lensH, bsIn, steerDir };
   }
 
+  const STEER = { l12: 50, l2: 60 }; // ระยะ M1→M2 และ M2→BS (mm)
   function realGeom(p = state.p) {
     const s = 25;
-    return { laserX: -80, bsX: 0, lensY: state.d, f: state.f, cmosY: state.d + state.f, s, H: 60,
+    const g = { laserX: -80, bsX: 0, lensY: state.d, f: state.f, cmosY: state.d + state.f, s, H: 60,
       prismX: state.D0 + p - s / 2, uOf: (x) => x - state.D0 };
+    if (state.steer) Object.assign(g, { laserX: 40, m1: V(-STEER.l2, -STEER.l12), m2: V(-STEER.l2, 0), a1: state.m1 * 1e-6, a2: state.m2 * 1e-6 });
+    return g;
   }
   const nrm = (v, a, b) => (v - a) / (b - a);
+  let steerK = 1;
   function drawGeom() {
     const s = 12, D0 = 70, Ls = 120;
     const lensY = 13 + 9 * nrm(state.d, 20, 500), f = 15 + 17 * nrm(state.f, 100, 2000);
-    return { laserX: 2, bsX: 26, bsHalf: 8, lensY, f, cmosY: lensY + f, s, H: 40, D0, Ls,
+    // กระจก steering ใช้ตัวขยายของตัวเอง: มุมที่มากที่สุดแสดงเป็น 0.5° ในภาพ (ลำแสงยังผ่านปริซึม)
+    const mMax = Math.max(Math.abs(state.m1), Math.abs(state.m2), 1e-9);
+    steerK = Math.min(state.K, 0.5 * Math.PI / 180 / (mMax * 1e-6));
+    const a1 = state.m1 * 1e-6 * steerK, a2 = state.m2 * 1e-6 * steerK, clampA = (a) => a;
+    const g = { laserX: 8, bsX: 26, bsHalf: 8, lensY, f, cmosY: lensY + f, s, H: 40, D0, Ls,
       prismX: D0 + (state.p / state.L) * Ls - s / 2, uOf: (x) => (x - D0) / Ls * state.L };
+    if (state.steer) Object.assign(g, { laserX: -6, m1: V(-17, -12), m2: V(-17, 0), a1: clampA(a1), a2: clampA(a2) });
+    return g;
   }
 
   // ---------- drawing helpers ----------
@@ -430,6 +464,19 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   }
   const fmt = (v, n) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(n);
 
+  // สีเลเซอร์ตามความยาวคลื่น (ประมาณแบบ Bruton) เกิน 780 nm เป็นอินฟราเรด ใช้สีแดงเข้มแทน
+  function laserColor(nm, dark) {
+    const l = Math.min(Math.max(nm, 380), 780);
+    let r = 0, g = 0, b = 0;
+    if (l < 440) { r = (440 - l) / 60; b = 1; } else if (l < 490) { g = (l - 440) / 50; b = 1; }
+    else if (l < 510) { g = 1; b = (510 - l) / 20; } else if (l < 580) { r = (l - 510) / 70; g = 1; }
+    else if (l < 645) { r = 1; g = (645 - l) / 65; } else r = 1;
+    const c = [r, g, b].map((x) => Math.pow(x, 0.8));
+    // k = ความสว่าง, w = ผสมสีขาว (แกนลำแสงบนพื้นมืดดูร้อนจัดเกือบขาว)
+    const hex = (k, w) => "#" + c.map((x) => Math.round(255 * (x * k * (1 - w) + w)).toString(16).padStart(2, "0")).join("");
+    return dark ? { beam: hex(1, 0), core: hex(1, 0.55), line: hex(1, 0.2) } : { beam: hex(0.92, 0), core: hex(0.72, 0), line: hex(0.7, 0) };
+  }
+
   // ---------- schematic ----------
   let lastDrawClamp = { theta: false, tau: false };
   let lastReal = null;
@@ -437,7 +484,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     lastReal = real;
     const { ctx, w, h } = target || setup($("schem"));
     const g = drawGeom();
-    const X0 = -10, X1 = 202, Y0 = -54, Y1 = g.cmosY + 14;
+    const X0 = state.steer ? -29 : -10, X1 = 202, Y0 = -54, Y1 = g.cmosY + 14;
     const sc = Math.min(w / (X1 - X0), h / (Y1 - Y0));
     const ox = (w - sc * (X1 - X0)) / 2, oy = (h - sc * (Y1 - Y0)) / 2;
     const T = (q) => V(ox + (q.x - X0) * sc, oy + (Y1 - q.y) * sc);
@@ -463,10 +510,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const path = (pts, color, lw, dash) => { ctx.beginPath(); pts.forEach((q, i) => { const P = T(q); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); }); ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]); };
 
     // housing
-    rect(-6, -14, g.bsX + 28, g.cmosY + 22, panel, line);
-    ctx.font = `600 ${fontS * 1.05}px ${col("--font-display")}`; text("Autocollimator", V(-4, g.cmosY + 5), "left", ink); ctx.font = `${fontS}px ${col("--font-body")}`;
-    // laser
-    rect(-3, -3, 11, 6, laser + "33", laser); text("Laser", V(2.5, 0), "center", ink);
+    const hx = state.steer ? -27 : -6, hy = state.steer ? -18 : -14;
+    rect(hx, hy, g.bsX + (state.steer ? 52 : 28), g.cmosY + (state.steer ? 26 : 22), panel, line);
+    ctx.font = `600 ${fontS * 1.05}px ${col("--font-display")}`; text("Autocollimator", V(hx + 2, g.cmosY + 5), "left", ink); ctx.font = `${fontS}px ${col("--font-body")}`;
+    // laser: มี steering อยู่ข้าง M1 ยิงไปทางซ้าย, ไม่มี steering ยิงตรงเข้า BS
+    if (state.steer) { rect(-6, -15, 10, 6, laser + "33", laser); text("Laser", V(-1, -12), "center", ink); }
+    else { rect(-3, -3, 11, 6, laser + "33", laser); text("Laser", V(2.5, 0), "center", ink); }
     // BS
     rect(g.bsX - g.bsHalf, -g.bsHalf, 2 * g.bsHalf, 2 * g.bsHalf, glass, gEdge);
     path([V(g.bsX - g.bsHalf, g.bsHalf), V(g.bsX + g.bsHalf, -g.bsHalf)], gEdge, 1.2);
@@ -488,6 +537,17 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     text(`${state.d} mm`, V(g.bsX - 13.2, g.lensY / 2 - 3.2), "right", muted);
     dim(g.bsX - 12, g.lensY, g.cmosY, `f = ${state.f} mm`);
 
+    // กระจก beam steering M1, M2
+    if (state.steer) [[g.m1, g.a1, "M1", -Math.PI / 4], [g.m2, g.a2, "M2", Math.PI / 4]].forEach(([m, a, nm, base]) => {
+      const u = V(Math.cos(base + a), Math.sin(base + a));
+      const nrmv = nm === "M1" ? V(u.y, -u.x) : V(-u.y, u.x); // ด้านหลังกระจก (ตรงข้ามด้านที่แสงสะท้อน)
+      poly([add(sub(m, mul(u, 3.4)), mul(nrmv, 0)), add(add(m, mul(u, 3.4)), mul(nrmv, 0)), add(add(m, mul(u, 3.4)), mul(nrmv, 1.4)), add(sub(m, mul(u, 3.4)), mul(nrmv, 1.4))], sample, gEdge);
+      path([sub(m, mul(u, 3.4)), add(m, mul(u, 3.4))], ink, 2.2);
+      ctx.font = `600 ${fontS}px ${col("--font-body")}`;
+      text(nm, add(m, V(-3.4, nm === "M1" ? -3.4 : 3.4)), "right", ink);
+      ctx.font = `${fontS}px ${col("--font-body")}`;
+    });
+
     // stage + sample
     const railY = g.s / 2 + 9;
     rect(g.D0 - 6, railY, g.Ls + 12, 1.6, sample, gEdge);
@@ -497,32 +557,76 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     text(`Sample ยาว ${state.L} mm`, V(g.D0, -g.H - 12), "left", ink);
 
     // beam rays (draw geometry, exaggerated angles)
-    const offs = state.edges ? [-(0.8 + 2.6 * nrm(state.beam, 1, 10)), 0, 0.8 + 2.6 * nrm(state.beam, 1, 10)] : [0];
-    let center = null;
-    offs.forEach((o) => {
-      const r = trace(g, o, thDraw, tauD);
-      if (o === 0) center = r;
-      const lw = o === 0 ? 1.8 : 0.9, a = o === 0 ? 1 : 0.55;
-      ctx.globalAlpha = a;
-      path(r.out, laser, lw);
-      path(r.ret, ret, lw, [5, 4]);
-      ctx.globalAlpha = 1;
-    });
-    // prism + carriage on top of rays outline
-    const v = center.v;
-    poly(v, glass + "cc", gEdge);
+    const halfW = 0.8 + 2.6 * nrm(state.beam, 1, 10);
+    const center = trace(g, 0, thDraw, tauD), v = center.v;
     const top = Math.max(...v.map((q) => q.y));
     const cx = v.reduce((s2, q) => s2 + q.x, 0) / v.length;
-    rect(cx - 4, top, 8, railY - top, sample, gEdge);
-    path(center.out.slice(1), laser, 1.8); path(center.ret.slice(1, 5), ret, 1.8, [5, 4]);
+    const lc = laserColor(state.lam, document.documentElement.getAttribute("data-theme") === "dark");
+    const outC = state.real ? lc.line : laser, retC = state.real ? lc.line : ret;
+    // จุดแสงเรืองบนผิว: วงกลมซ้อนโปร่งแสง (export เป็น SVG ได้)
+    const glow = (q, rad, core) => {
+      const P = T(q);
+      [[2.4, 0.08], [1.6, 0.14], [1, 0.26]].forEach(([k, a]) => { ctx.globalAlpha = a; ctx.fillStyle = lc.beam; ctx.beginPath(); ctx.arc(P.x, P.y, rad * k, 0, 2 * Math.PI); ctx.fill(); });
+      ctx.globalAlpha = 1;
+      if (core) { ctx.fillStyle = lc.core; ctx.beginPath(); ctx.arc(P.x, P.y, core, 0, 2 * Math.PI); ctx.fill(); }
+    };
+    if (state.real) {
+      // ปริซึมวาดก่อน ให้ลำแสงทับอยู่บนเนื้อแก้ว
+      poly(v, glass + "cc", gEdge);
+      rect(cx - 4, top, 8, railY - top, sample, gEdge);
+      // พื้นที่ระหว่างเส้นแสงสองเส้น (จุดตรงกันทีละช่วง) เติมเป็นรูปเดียว ช่วงที่พับทับกันในปริซึมจึงไม่เข้มขึ้นซ้ำ
+      const band = (A, B, a) => {
+        ctx.beginPath();
+        for (let i = 0; i + 1 < A.length; i++) {
+          let q = [A[i], A[i + 1], B[i + 1], B[i]];
+          if (q.reduce((s2, p0, k) => s2 + cross(p0, q[(k + 1) % 4]), 0) < 0) q = q.reverse();
+          q.forEach((p0, k) => { const P = T(p0); k ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); });
+          ctx.closePath();
+        }
+        ctx.globalAlpha = a; ctx.fillStyle = lc.beam; ctx.fill(); ctx.globalAlpha = 1;
+      };
+      // แสงที่ BS (50/50) แยกออก: ขาไปสะท้อนลงไปที่ beam dump, ขากลับส่วนที่ทะลุ BS วิ่งกลับทางเลเซอร์
+      const backX = state.steer ? g.m2.x : g.bsX - 18; // ส่วนที่ทะลุ BS กลับไปตกที่ M2 หรือหน้าเลเซอร์
+      const ghost = (r) => ({ o: [r.bsIn, V(r.bsIn.x, -12)], b: [r.ret[5], hitLine(r.ret[5], sub(r.ret[5], r.ret[4]), V(backX, 0), V(backX, 1))] });
+      // โปรไฟล์ความเข้มแบบ Gaussian: ซ้อนหลายชั้น ขอบ 1/e² อยู่ที่ขนาดลำแสง ชั้นนอกสุดเป็นแสงเรือง
+      let edgeRays = null;
+      [[1.5, 0.06], [1, 0.15], [0.62, 0.18], [0.3, 0.22]].forEach(([k, a]) => {
+        const A = trace(g, k * halfW, thDraw, tauD), B = trace(g, -k * halfW, thDraw, tauD);
+        if (k === 1) edgeRays = [A, B];
+        band(A.out, B.out, a);
+        band(A.ret, B.ret, a * 0.85);
+        const gA = ghost(A), gB = ghost(B);
+        band(gA.o, gB.o, a * 0.45);
+        band(gA.b, gB.b, a * 0.45);
+      });
+      if (state.edges) edgeRays.forEach((r) => { ctx.globalAlpha = 0.4; path(r.out, lc.line, 0.5); path(r.ret, lc.line, 0.5); ctx.globalAlpha = 1; });
+      // แกนลำแสง (ส่วนที่สว่างที่สุด)
+      path(center.out, lc.core, 1.3);
+      ctx.globalAlpha = 0.85; path(center.ret, lc.core, 1); ctx.globalAlpha = 1;
+      glow(center.hit, 0.9 * halfW * sc);
+    } else {
+      const offs = state.edges ? [-halfW, 0, halfW] : [0];
+      offs.forEach((o) => {
+        const r = o === 0 ? center : trace(g, o, thDraw, tauD);
+        const lw = o === 0 ? 1.8 : 0.9, a = o === 0 ? 1 : 0.55;
+        ctx.globalAlpha = a;
+        path(r.out, laser, lw);
+        path(r.ret, ret, lw, [5, 4]);
+        ctx.globalAlpha = 1;
+      });
+      // prism + carriage on top of rays outline
+      poly(v, glass + "cc", gEdge);
+      rect(cx - 4, top, 8, railY - top, sample, gEdge);
+      path(center.out.slice(1), laser, 1.8); path(center.ret.slice(1, 5), ret, 1.8, [5, 4]);
+    }
     text("Pentaprism", V(g.prismX + g.s / 2, -g.s / 2 - 4.5), "center", ink);
     // arrows on rays
-    arrowHead(ctx, T(V(40, 0)), T(V(44, 0)), laser, 8);
+    arrowHead(ctx, T(V(40, 0)), T(V(44, 0)), outC, 8);
     const hit = center.hit;
-    arrowHead(ctx, T(add(hit, V(0, 14))), T(add(hit, V(0, 10))), laser, 8);
+    arrowHead(ctx, T(add(hit, V(0, 14))), T(add(hit, V(0, 10))), outC, 8);
     const rr = center.ret;
-    arrowHead(ctx, T(add(hit, mul(center.upDir, 16))), T(add(hit, mul(center.upDir, 20))), ret, 8);
-    arrowHead(ctx, T(V(52, rr[5].y + (rr[4].y - rr[5].y) * 0.4)), T(V(48, rr[5].y + (rr[4].y - rr[5].y) * 0.37)), ret, 8);
+    arrowHead(ctx, T(add(hit, mul(center.upDir, 16))), T(add(hit, mul(center.upDir, 20))), retC, 8);
+    arrowHead(ctx, T(V(52, rr[5].y + (rr[4].y - rr[5].y) * 0.4)), T(V(48, rr[5].y + (rr[4].y - rr[5].y) * 0.37)), retC, 8);
 
     // ตำแหน่ง A และ B บนกระจก
     [["A", state.pA, col("--pa")], ["B", state.pB, col("--pb")]].forEach(([nm, pp, cc]) => {
@@ -535,14 +639,15 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const thH = center.th, tdir = V(Math.cos(thH), Math.sin(thH));
     path([sub(hit, mul(tdir, 9)), add(hit, mul(tdir, 9))], surf, 4);
     text("θ", add(hit, V(10.5, 1.4)), "left", surf);
-    text("2θ", add(hit, V(thH >= 0 ? -3 : 1.5, 17)), thH >= 0 ? "right" : "left", ret);
+    text("2θ", add(hit, V(thH >= 0 ? -3 : 1.5, 17)), thH >= 0 ? "right" : "left", retC);
     text(`x = ${state.p.toFixed(1)} mm`, V(g.prismX + g.s / 2, -g.s / 2 - 10.5), "center", muted);
 
     // CMOS reference + spot
     const ref = T(V(g.bsX, g.cmosY));
     ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ref.x, ref.y - 6); ctx.lineTo(ref.x, ref.y + 6); ctx.stroke();
     const sp = T(V(g.bsX + center.cmosX, g.cmosY));
-    ctx.fillStyle = ret; ctx.beginPath(); ctx.arc(sp.x, sp.y, 4, 0, 2 * Math.PI); ctx.fill();
+    if (state.real) glow(V(g.bsX + center.cmosX, g.cmosY), 4.5, 2.2);
+    else { ctx.fillStyle = ret; ctx.beginPath(); ctx.arc(sp.x, sp.y, 4, 0, 2 * Math.PI); ctx.fill(); }
 
     // inset: ซูมที่ CMOS ด้วยค่า Δ จริง (µm)
     const dUm = real.deltaUm;
@@ -912,7 +1017,15 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const rLevel = trace(g, 0, fixed, 0), rTilt = trace(g, 0, fixed, state.tau * 1e-6);
     const tiltEffect = (rTilt.cmosX - rLevel.cmosX) * 1000;
     const hitShift = (rTilt.hit.x - rLevel.hit.x) * 1000;
-    return { r, deltaUm, thBack, tiltEffect, hitShift, g };
+    // beam steering: มุมและการเยื้องของลำแสงที่เข้า BS, และจุดอ้างอิง (slope = 0) บน CMOS
+    let beamAng = 0, offBS = 0, refUm = 0;
+    if (state.steer) {
+      const sd = r.steerDir, m2p = r.out[2];
+      beamAng = Math.atan2(sd.y, sd.x) * 1e6;               // µrad
+      offBS = (m2p.y + (g.bsX - m2p.x) * sd.y / sd.x) * 1000; // µm ที่ระนาบกลาง BS
+      refUm = trace(g, 0, () => 0, state.tau * 1e-6).cmosX * 1000;
+    }
+    return { r, deltaUm, thBack, tiltEffect, hitShift, g, beamAng, offBS, refUm };
   }
 
   function render() {
@@ -937,10 +1050,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     $("sDelta").innerHTML = `${fmt(c.deltaUm, 3)}<small>µm</small>`;
     $("sDeltaX").textContent = `= ${fmt(c.deltaUm / state.pix, 3)} พิกเซล · ความไว 2f = ${(2 * state.f / 1000).toFixed(2)} µm/µrad`;
     $("sBack").innerHTML = `${fmt(c.thBack, 3)}<small>µrad</small>`;
-    $("sBackX").textContent = `ต่างจากค่าจริง ${(Math.abs(c.thBack - th) * 1000).toFixed(4)} nrad`;
+    const dB = Math.abs(c.thBack - th);
+    $("sBackX").textContent = dB >= 0.001 ? `ต่างจากค่าจริง ${dB.toFixed(3)} µrad (จาก beam steering)` : `ต่างจากค่าจริง ${(dB * 1000).toFixed(4)} nrad`;
     $("sTilt").innerHTML = `${fmt(c.tiltEffect, 4)}<small>µm</small>`;
     $("sTiltX").textContent = `ปริซึมเอียง ${fmt(state.tau / 1000, 2)} mrad · จุดตกบนกระจกขยับ ${fmt(c.hitShift, 1)} µm`;
 
+    $("steerNote").textContent = `ลำแสงเข้า BS เอียง ${fmt(c.beamAng, 1)} µrad เยื้อง ${fmt(c.offBS, 1)} µm · จุดอ้างอิง (slope = 0) บน CMOS เลื่อนไป ${fmt(c.refUm, 3)} µm · ระยะ M1→M2 ${STEER.l12} mm, M2→BS ${STEER.l2} mm`;
     $("formula").textContent = `Δ = f·tan(2θ) = ${state.f} mm × tan(2 × ${fmt(th, 3)} µrad) = ${fmt(state.f * Math.tan(2 * th * 1e-6) * 1000, 3)} µm   ·   θ = ½·atan(Δ/f)   ·   ray trace ได้ ${fmt(c.deltaUm, 3)} µm`;
 
     // status chips
@@ -951,6 +1066,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     if (Math.abs(c.r.lensH) > 12.5) chips.push(["warn", `แสงขากลับหลุดขอบเลนส์ (${c.r.lensH.toFixed(1)} mm)`]);
     if (lastDrawClamp.theta) chips.push(["warn", "มุม θ ในภาพถูกจำกัดไว้ที่ 0.75° ลด K เพื่อให้ภาพตรงสัดส่วน"]);
     if (lastDrawClamp.tau) chips.push(["warn", "มุมเอียงปริซึมในภาพถูกจำกัดไว้ที่ 6°"]);
+    if (state.real && state.lam > 760) chips.push(["warn", `λ = ${state.lam} nm เป็นอินฟราเรด ตามองไม่เห็นลำแสงจริง ภาพใช้สีแดงเข้มแทน`]);
+    if (state.steer && (state.m1 !== 0 || state.m2 !== 0)) chips.push(["warn", `กระจก steering เอียง: จุดอ้างอิงบน CMOS เลื่อน ${fmt(c.refUm, 3)} µm (ค่าคงที่ ระยะ d ระหว่าง 2 ตำแหน่งแทบไม่เปลี่ยน)`]);
+    if (state.steer && (state.m1 !== 0 || state.m2 !== 0)) chips.push(["ok", `มุมกระจก steering ในภาพขยาย ×${Math.round(steerK).toLocaleString("en-US")}`]);
     if (Math.abs(c.tiltEffect) < 1e-6 && state.tau !== 0) chips.push(["ok", "ปริซึมเอียงแต่ Δ ไม่เปลี่ยน: pentaprism หักแสง 90° คงที่"]);
     if (!chips.length) chips.push(["ok", "แสงขากลับเข้า BS เลนส์ และเซนเซอร์ครบ"]);
     $("chips").innerHTML = chips.map(([k, t]) => `<span class="chip ${k === "ok" ? "ok" : ""}">${t}</span>`).join("");
@@ -960,7 +1078,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   const units = {
     p: (v) => `${(+v).toFixed(1)} mm`, tau: (v) => `${(v / 1000).toFixed(2)} mrad`, step: (v) => `${v} mm`, f: (v) => `${v} mm`, d: (v) => `${v} mm`,
     D0: (v) => `${v} mm`, beam: (v) => `${(+v).toFixed(1)} mm`, lam: (v) => `${v} nm`, pix: (v) => `${(+v).toFixed(1)} µm`, sensor: (v) => `${(+v).toFixed(1)} mm`,
-    sigma: (v) => `${(+v).toFixed(2)} µm`, L: (v) => `${v} mm`, pA: (v) => `${(+v).toFixed(1)} mm`, pB: (v) => `${(+v).toFixed(1)} mm`,
+    sigma: (v) => `${(+v).toFixed(2)} µm`, L: (v) => `${v} mm`, pA: (v) => `${(+v).toFixed(1)} mm`, pB: (v) => `${(+v).toFixed(1)} mm`, m1: (v) => `${(+v).toFixed(0)} µrad`, m2: (v) => `${(+v).toFixed(0)} µrad`,
   };
   Object.keys(units).forEach((k) => {
     const el = $(k);
@@ -968,7 +1086,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     el.addEventListener("input", () => {
       sync();
       if (k === "L") { ["pA", "pB"].forEach((q) => { $(q).max = state.L; if (state[q] > state.L) { state[q] = state.L; $(q).value = state.L; $(q + "Out").textContent = units[q](state.L); } }); $("p").max = state.L; if (state.p > state.L) { state.p = state.L; $("p").value = state.L; $("pOut").textContent = units.p(state.L); } state.scan = []; }
-      if (["f", "D0", "tau", "sigma"].includes(k)) state.scan = [];
+      if (["f", "D0", "tau", "sigma", "m1", "m2"].includes(k)) state.scan = [];
       render();
     });
     sync();
@@ -976,7 +1094,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   $("K").addEventListener("input", () => { state.autoK = false; $("autoK").checked = false; state.K = Math.pow(10, +$("K").value); render(); });
   $("autoK").addEventListener("change", () => { state.autoK = $("autoK").checked; if (!state.autoK) state.K = Math.pow(10, +$("K").value); render(); });
   $("edges").addEventListener("change", () => { state.edges = $("edges").checked; render(); });
+  $("real").addEventListener("change", () => { state.real = $("real").checked; render(); });
   $("fitMode").addEventListener("change", render);
+  $("steerReset").addEventListener("click", () => { ["m1", "m2"].forEach((k) => { state[k] = 0; $(k).value = 0; $(k + "Out").textContent = units[k](0); }); state.scan = []; render(); });
+  // ช่องติ๊ก beam steering (เปิดจากลิงก์ได้ด้วย ?steering=1)
+  const setSteer = (on) => { state.steer = on; $("steer").checked = on; $("steerBox").hidden = !on; state.scan = []; };
+  $("steer").addEventListener("change", () => { setSteer($("steer").checked); render(); });
+  try { if (new URLSearchParams(location.search).get("steering") === "1" || location.hash === "#steering") setSteer(true); } catch (e) { /* ignore */ }
   $("zoom").addEventListener("input", () => { $("autoZoom").checked = false; render(); });
   $("autoZoom").addEventListener("change", render);
 
@@ -1173,7 +1297,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     window.claude.use("downloads").then((ns) => { downloadsNS = ns; if (!ns && framed) $("svgDl").hidden = true; }).catch(() => {});
   }
   $("svgDl").addEventListener("click", () => {
-    const filename = `slope-scan-diagram_x${state.p.toFixed(0)}mm.svg`, data = schematicSVG();
+    const filename = `slope-scan-${state.steer ? "steering" : "diagram"}_x${state.p.toFixed(0)}mm.svg`, data = schematicSVG();
     if (downloadsNS) {
       downloadsNS.save({ filename, data }).then(() => svgMsg("บันทึกไฟล์ SVG แล้ว"), (e) => {
         const code = e && e.code;
