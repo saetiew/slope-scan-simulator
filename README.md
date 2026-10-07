@@ -2,6 +2,8 @@
 
 **เปิดใช้งาน:** https://saetiew.github.io/slope-scan-simulator/
 
+**แบบมี beam steering (กระจก M1, M2 หักแสง 90° สองครั้งก่อนเข้า beam splitter):** https://saetiew.github.io/slope-scan-simulator/steering.html
+
 หน้าเว็บจำลองการวัด slope ของกระจกด้วย autocollimator + pentaprism สแกน (แบบเลนส์อยู่หน้า CMOS)
 
 - ปรับโปรไฟล์ slope ของกระจก ตำแหน่ง/มุมเอียงของ pentaprism ค่า f และระยะต่างๆ แล้วดูเส้นแสงกับจุดบน CMOS ได้ทันที
