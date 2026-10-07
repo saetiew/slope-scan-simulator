@@ -434,8 +434,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const mMax = Math.max(Math.abs(state.m1), Math.abs(state.m2), 1e-9);
     steerK = Math.min(state.K, 0.5 * Math.PI / 180 / (mMax * 1e-6));
     const a1 = state.m1 * 1e-6 * steerK, a2 = state.m2 * 1e-6 * steerK, clampA = (a) => a;
-    return { laserX: 11, bsX: 26, bsHalf: 8, lensY, f, cmosY: lensY + f, s, H: 40, D0, Ls,
-      m1: V(4, -12), m2: V(4, 0), a1: clampA(a1), a2: clampA(a2),
+    return { laserX: -6, bsX: 26, bsHalf: 8, lensY, f, cmosY: lensY + f, s, H: 40, D0, Ls,
+      m1: V(-17, -12), m2: V(-17, 0), a1: clampA(a1), a2: clampA(a2),
       prismX: D0 + (state.p / state.L) * Ls - s / 2, uOf: (x) => (x - D0) / Ls * state.L };
   }
 
@@ -462,7 +462,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     lastReal = real;
     const { ctx, w, h } = target || setup($("schem"));
     const g = drawGeom();
-    const X0 = -10, X1 = 202, Y0 = -54, Y1 = g.cmosY + 14;
+    const X0 = -29, X1 = 202, Y0 = -54, Y1 = g.cmosY + 14;
     const sc = Math.min(w / (X1 - X0), h / (Y1 - Y0));
     const ox = (w - sc * (X1 - X0)) / 2, oy = (h - sc * (Y1 - Y0)) / 2;
     const T = (q) => V(ox + (q.x - X0) * sc, oy + (Y1 - q.y) * sc);
@@ -488,10 +488,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
     const path = (pts, color, lw, dash) => { ctx.beginPath(); pts.forEach((q, i) => { const P = T(q); i ? ctx.lineTo(P.x, P.y) : ctx.moveTo(P.x, P.y); }); ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]); };
 
     // housing
-    rect(-6, -18, g.bsX + 31, g.cmosY + 26, panel, line);
-    ctx.font = `600 ${fontS * 1.05}px ${col("--font-display")}`; text("Autocollimator", V(-4, g.cmosY + 5), "left", ink); ctx.font = `${fontS}px ${col("--font-body")}`;
+    rect(-27, -18, g.bsX + 52, g.cmosY + 26, panel, line);
+    ctx.font = `600 ${fontS * 1.05}px ${col("--font-display")}`; text("Autocollimator", V(-25, g.cmosY + 5), "left", ink); ctx.font = `${fontS}px ${col("--font-body")}`;
     // laser
-    rect(11, -15, 10, 6, laser + "33", laser); text("Laser", V(16, -12), "center", ink);
+    rect(-6, -15, 10, 6, laser + "33", laser); text("Laser", V(-1, -12), "center", ink);
     // BS
     rect(g.bsX - g.bsHalf, -g.bsHalf, 2 * g.bsHalf, 2 * g.bsHalf, glass, gEdge);
     path([V(g.bsX - g.bsHalf, g.bsHalf), V(g.bsX + g.bsHalf, -g.bsHalf)], gEdge, 1.2);
